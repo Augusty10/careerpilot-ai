@@ -86,5 +86,5 @@ app = create_app()
 if __name__ == "__main__":
     print(f"🚀 CareerPilot AI Backend running on http://127.0.0.1:{Config.PORT}")
     print(f"📡 CORS enabled for: {Config.FRONTEND_URL}")
-    app.run(host="0.0.0.0", port=Config.PORT, debug=Config.DEBUG)
+    app.run(host="0.0.0.0", port=Config.PORT, debug=Config.DEBUG, threaded=True)
 

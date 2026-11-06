@@ -110,7 +110,44 @@ Module 4 aggregates, normalizes, deduplicates, and filters fresher-friendly job 
 
 ---
 
-## ⚖️ Legal & Ethical Compliance Policy
+## 📦 Module 5: AI Job Matching & Eligibility Checking (Complete)
+
+Module 5 provides candidates with transparent, rule-based eligibility evaluation and skill gap analysis comparing their approved Master Profile against discovered job listings.
+
+### ✨ Key Features in Module 5
+- **Strict 4-Category System**:
+  - Exactly four discrete match categories: `strong_match`, `partial_match`, `low_match`, and `not_eligible`.
+  - **Zero Hiring Predictions**: No "chances of selection" or probability claims. Numeric scores are strictly labelled *"Skill coverage"* or *"Match score"* with mandatory disclaimers: *"This reflects how many required skills you have. It is not a prediction of being hired."* Wording states the candidate *"appears to meet the stated requirement"*.
+- **Deterministic Rules Engine (`eligibility_rules.py`)**:
+  - **Hard Ineligibility Rules**: Candidate is flagged as `not_eligible` if:
+    - Education qualification level is strictly below stated requirements (e.g., Diploma applying for a Master's role, unless "Any graduate" or unspecified).
+    - Graduation batch year is excluded by job posting criteria (e.g. job restricted to 2024 batch while candidate graduated in 2022).
+    - Job requires senior experience (>2 years) while candidate is a fresher.
+    - Mandatory certifications specified in the job posting are missing.
+  - **Location & Work Mode Analysis**: Detects remote flexibility and location alignment. Location mismatches are flagged as non-fatal warnings rather than hard failures, recognizing entry-level willingness to relocate.
+  - **Deterministic Categorization Thresholds**:
+    - $\ge 75\%$ Skill Coverage $\rightarrow$ `strong_match`
+    - $40\% - 74\%$ Skill Coverage $\rightarrow$ `partial_match`
+    - $< 40\%$ Skill Coverage $\rightarrow$ `low_match`
+    - Any failed hard requirement $\rightarrow$ `not_eligible` (AI cannot override)
+- **Curated Skill Normalizer & Related Skills (`skill_normalizer.py`)**:
+  - Curated alias dictionary normalizing variants (`reactjs`/`react.js` $\rightarrow$ `React`, `nodejs` $\rightarrow$ `Node.js`, `postgres` $\rightarrow$ `PostgreSQL`).
+  - Related technology pairing mapping alternative frameworks (Flask $\leftrightarrow$ Django, React $\leftrightarrow$ Vue, PostgreSQL $\leftrightarrow$ MySQL).
+  - Configurable partial credit ($0.5\times$ weight via `MATCH_RELATED_SKILL_WEIGHT`):
+    $$\text{Skill Coverage} = \frac{\text{Exact Matches} + 0.5 \times \text{Related Matches}}{\text{Total Required Skills}} \times 100$$
+- **Explainable AI Integration (`ai_service.py`)**:
+  - Deterministic-first architecture: AI only performs semantic related-skill checks and drafts plain-language explanations; **AI is strictly barred from overriding or upgrading a rule-based `not_eligible` status**.
+  - **Data Minimization**: Zero candidate personal identifiable information (name, email, phone, links) is ever passed to AI prompts.
+- **Profile Version Hash & Out-of-Date Tracking**:
+  - Generates a SHA-256 fingerprint (`profile_version_hash`) of profile skills, education, and experience.
+  - Flags match records with `is_stale: true` and an `⚠️ Out of date` badge whenever the Master Profile is modified, providing a single-click "Recompute Match" action.
+- **Personalized Recommendations & Fresher UI (React + Tailwind CSS)**:
+  - `MatchScore.jsx`: Category badge with 4 distinct colors, skill coverage pill, out-of-date notice, and tooltip disclaimer.
+  - `MatchBreakdown.jsx`: Comprehensive requirement-by-requirement evaluation (Technical Skills, Education, Graduation Year, Experience, Location, Certifications), hard ineligibility alert, warnings list, and actionable gap-closing advice.
+  - `RecommendedJobs.jsx`: Dedicated feed (`/jobs/recommended`) ranking opportunities by fit category and skill coverage, featuring category filter tabs and a "Hide Not Eligible" toggle.
+  - Seamlessly integrated into `JobCard.jsx`, `JobDetails.jsx`, and candidate `Dashboard.jsx`.
+
+---
 
 CareerPilot AI adheres strictly to legal, ethical, and privacy standards:
 1. **Zero Unauthorized Scraping**: We do not scrape websites in violation of their Terms of Service.
@@ -191,24 +228,29 @@ careerpilot-ai/
 │   │   ├── user.py                  # Module 1: User schemas & serialization
 │   │   ├── profile.py               # Module 2: Master Profile schemas & completeness
 │   │   ├── resume.py                # Module 3: Resume schemas, validation & serialization
-│   │   └── job.py                   # Module 4: Job schemas, preferences & serialization
+│   │   ├── job.py                   # Module 4: Job schemas, preferences & serialization
+│   │   └── match.py                 # Module 5: Job match schemas, breakdowns & serialization
 │   ├── routes/
 │   │   ├── __init__.py
 │   │   ├── auth.py                  # Module 1: Auth endpoints (/api/auth)
 │   │   ├── profiles.py              # Module 2: Profile endpoints (/api/profile)
 │   │   ├── resumes.py               # Module 3: Resume generation & export (/api/resumes)
-│   │   └── jobs.py                  # Module 4: Job discovery & saved jobs (/api/jobs)
+│   │   ├── jobs.py                  # Module 4: Job discovery & saved jobs (/api/jobs)
+│   │   └── matching.py              # Module 5: Matching, batch & recommended jobs (/api/matches, /api/jobs/recommended)
 │   ├── services/
 │   │   ├── __init__.py
 │   │   ├── auth_service.py          # Module 1: @token_required decorator, Bcrypt & JWT
 │   │   ├── resume_service.py        # Module 2: Magic bytes validation, text extraction & storage
-│   │   ├── ai_service.py            # Modules 2 & 3: Swappable AI provider (Gemini / Mock Mode)
+│   │   ├── ai_service.py            # Modules 2, 3 & 5: Swappable AI provider (Gemini / Mock Mode)
 │   │   ├── resume_validator.py      # Module 3: Deterministic truthfulness validator
 │   │   ├── resume_export_service.py # Module 3: ATS PDF & DOCX generator (Modern & Classic)
 │   │   ├── resume_generation_service.py # Module 3: Versioning, generation & private storage
 │   │   ├── job_normalizer.py        # Module 4: Experience parsing, fresher classification & sanitization
 │   │   ├── dedup_service.py         # Module 4: SequenceMatcher fuzzy deduplication & expiration engine
 │   │   ├── job_service.py           # Module 4: Discovery coordination, search/filter & saved jobs
+│   │   ├── skill_normalizer.py      # Module 5: Skill alias dictionary & related tech pairs
+│   │   ├── eligibility_rules.py     # Module 5: Deterministic rules (education, year, exp, thresholds)
+│   │   ├── matching_service.py      # Module 5: Match orchestrator, version hash & recommended feed
 │   │   └── job_sources/
 │   │       ├── __init__.py
 │   │       ├── base.py              # Module 4: JobSource base class with caching & timeout
@@ -236,7 +278,9 @@ careerpilot-ai/
 │   │   │   ├── ResumeCard.jsx       # Module 3: Resume card with version, badges & actions
 │   │   │   ├── ResumePreview.jsx    # Module 3: Live visual ATS preview (Modern & Classic)
 │   │   │   ├── ResumeEditor.jsx     # Module 3: Interactive modal editor with truthfulness alerts
-│   │   │   └── JobCard.jsx          # Module 4: Job card with sample badge, fresher pill & save toggle
+│   │   │   ├── JobCard.jsx          # Module 4 & 5: Job card with sample badge, fresher pill, save & match score
+│   │   │   ├── MatchScore.jsx       # Module 5: Category badge, skill coverage pill & out-of-date notice
+│   │   │   └── MatchBreakdown.jsx   # Module 5: Requirement evaluation table, warnings & advice
 │   │   ├── context/
 │   │   │   └── AuthContext.jsx      # React Context (user, login, register, logout)
 │   │   ├── pages/
@@ -248,12 +292,13 @@ careerpilot-ai/
 │   │   │   ├── ResetPassword.jsx    # Reset password with token
 │   │   │   ├── ResumeBuilder.jsx    # Module 3: Multiple Resume Generator hub & gallery
 │   │   │   ├── JobDiscovery.jsx     # Module 4: Job discovery feed, search, filter chips & saved tab
-│   │   │   ├── JobDetails.jsx       # Module 4: Full job details, sample banner & M5/M6 placeholders
+│   │   │   ├── JobDetails.jsx       # Modules 4 & 5: Full job details, sample banner & MatchBreakdown
+│   │   │   ├── RecommendedJobs.jsx  # Module 5: Recommended opportunities ranked feed
 │   │   │   └── Settings.jsx         # Name update & password change
 │   │   ├── services/
-│   │   │   ├── api.js               # Axios instance with authAPI, profileAPI, resumeAPI & jobAPI
+│   │   │   ├── api.js               # Axios instance with authAPI, profileAPI, resumeAPI, jobAPI & matchingAPI
 │   │   │   └── token.js             # Token storage abstraction (memory + localStorage)
-│   │   ├── App.jsx                  # React Router routes (/jobs, /jobs/:jobId, /resumes, /profile, etc.)
+│   │   ├── App.jsx                  # React Router routes (/jobs, /jobs/recommended, /jobs/:jobId, /resumes, /profile, etc.)
 │   │   ├── index.css                # Tailwind CSS base styles
 │   │   └── main.jsx                 # Vite React entry point
 │   ├── index.html
@@ -271,7 +316,8 @@ careerpilot-ai/
 │   ├── test_resume_parser.py        # Module 2: Magic bytes, parsing, empty PDF & storage tests
 │   ├── test_resume_validator.py     # Module 3: Truthfulness validator & anti-hallucination tests
 │   ├── test_resume_generator.py     # Module 3: Resume generation, versions, batch & export tests
-│   └── test_job_discovery.py        # Module 4: Sourcing, parsing, classifier, dedup, expiry & saved jobs
+│   ├── test_job_discovery.py        # Module 4: Sourcing, parsing, classifier, dedup, expiry & saved jobs
+│   └── test_matching.py             # Module 5: Match scoring, deterministic rules, staleness & isolation tests
 ├── run_full_walkthrough.py          # Automated browser walkthrough orchestrator
 ├── .env.example
 ├── .gitignore
@@ -306,6 +352,9 @@ cp .env.example .env
 | `ADZUNA_APP_KEY` | Adzuna Job Search API Key | *(Optional)* |
 | `ADZUNA_COUNTRY` | Adzuna country code | `in` |
 | `JOB_EXPIRY_DAYS` | Cutoff in days before job is marked expired | `45` |
+| `MATCH_STRONG_THRESHOLD` | Threshold score (percentage) for strong match | `75` |
+| `MATCH_PARTIAL_THRESHOLD` | Threshold score (percentage) for partial match | `40` |
+| `MATCH_RELATED_SKILL_WEIGHT` | Partial credit weight multiplier for related skills | `0.5` |
 
 ---
 
@@ -344,13 +393,13 @@ Visit `http://localhost:5173` in your browser.
 
 ## 🧪 Running Automated Tests
 
-Run the full pytest suite (covering Modules 1, 2, 3, and 4):
+Run the full pytest suite (covering Modules 1, 2, 3, 4, and 5):
 
 ```bash
 .\.venv\Scripts\pytest -v tests
 ```
 
-**63 comprehensive tests pass with 100% success rate:**
+**75 comprehensive tests pass with 100% success rate:**
 - ✅ **Module 1 (Auth)**: Registration, duplicate prevention, password complexity, login verification, token protection, generic error responses, password reset lifecycle.
 - ✅ **Module 2 (Master Career Profile)**: PDF/DOCX magic bytes validation, text extraction, empty PDF handling, private storage isolation, skeleton creation, profile upsert, validation, approval lifecycle, user isolation.
 - ✅ **Module 3 (Multiple Resume Generator)**: Master skill whitelisting, anti-hallucination stripping, education/personal detail lock, approval gate enforcement, version auto-incrementing, batch multi-role generation, outdated badge tracking, and ATS PDF/DOCX export.
@@ -365,6 +414,19 @@ Run the full pytest suite (covering Modules 1, 2, 3, and 4):
   - `test_saved_jobs_lifecycle_and_isolation`: Saving, retrieving, and unsaving jobs with strict user tenant isolation.
   - `test_adzuna_adapter_disabled_gracefully_when_keys_missing`: Verifying external API adapters fail safe and silent when keys are omitted.
   - `test_unauthenticated_requests_return_401`: Enforcing `@token_required` protection across all job discovery endpoints.
+- ✅ **Module 5 (AI Job Matching & Eligibility Checking)**:
+  - `test_skill_normalizer_exact_and_related`: Verifies alias normalization and deterministic related technology pairing.
+  - `test_deterministic_related_skill_partial_credit`: Enforces 0.5x partial credit calculation without false full credit.
+  - `test_education_requirement_checking`: Degree rank hierarchy, "Any graduate" flexibility, and missing field handling.
+  - `test_graduation_year_batch_mismatch`: Detects graduation year mismatch (e.g. 2022 vs 2024 batch) as hard ineligibility.
+  - `test_experience_checking_fresher_vs_senior`: Flags >2 years requirement as not eligible while tracking internships separately.
+  - `test_location_mismatch_is_warning_not_hard_failure`: Treats location mismatch as an advisory warning rather than disqualification.
+  - `test_thresholds_strong_partial_low`: Verifies deterministic category thresholds (75%+ -> strong, 40-74% -> partial, <40% -> low).
+  - `test_limited_info_handling`: Gracefully handles jobs with unspecified skills or zero candidate skills.
+  - `test_ai_cannot_upgrade_hard_failure`: Guarantees rule-based `not_eligible` can never be upgraded by AI.
+  - `test_staleness_detection_on_profile_edit`: Detects profile modification via SHA-256 hash and flags matches as out-of-date.
+  - `test_batch_match_max_limit_enforced`: Rejects batch requests exceeding the maximum limit of 50 jobs.
+  - `test_tenant_isolation_on_matches`: Enforces strict per-user database scoping and isolation.
 
 ---
 
@@ -398,9 +460,23 @@ Run the full pytest suite (covering Modules 1, 2, 3, and 4):
 | `PUT` | `/api/jobs/preferences` | `@token_required` | Update candidate discovery preferences (`preferred_roles`, `locations`, etc.) |
 | `GET` | `/api/jobs/sources` | `@token_required` | List registered job source adapters and their operational status |
 
+### Module 5: Job Matching & Recommendations (`/api/matches`, `/api/jobs/recommended`)
+
+| Method | Endpoint | Protection | Description |
+|---|---|---|---|
+| `POST` | `/api/matches/<job_id>` | `@token_required` | Compute or recompute match breakdown and category for a job |
+| `POST` | `/api/matches/batch` | `@token_required` | Batch evaluate match for up to 50 jobs |
+| `GET` | `/api/matches/<job_id>` | `@token_required` | Retrieve stored match breakdown (flags `is_stale: true` if profile changed) |
+| `GET` | `/api/matches` | `@token_required` | List all computed matches with category filtering and sorting |
+| `GET` | `/api/jobs/recommended` | `@token_required` | Retrieve personalized recommended jobs ranked by fit category and coverage |
+
 ---
 
 ## 🔮 Upcoming Modules (Roadmap)
-- **Module 5**: AI Eligibility Match Scoring & Explanation Engine (Profile-to-Job gap analysis, score breakdown)
-- **Module 6**: Recruiter & Legitimacy Verification (Domain checking, ghost job detection, salary sanity)
-- **Module 7**: Application Assistant & Pipeline Tracker
+- ✅ **Module 1**: User Registration & Authentication
+- ✅ **Module 2**: Master Career Profile & AI Resume Extraction
+- ✅ **Module 3**: Multiple AI-Powered Role-Specific Resume Generator
+- ✅ **Module 4**: AI Job Discovery, Normalization & Filtering
+- ✅ **Module 5**: AI Job Matching & Eligibility Checking Engine
+- ⏳ **Module 6**: Recruiter & Legitimacy Verification (Domain checking, ghost job detection, salary sanity)
+- ⏳ **Module 7**: Application Assistant & Pipeline Tracker
