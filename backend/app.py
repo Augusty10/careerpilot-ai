@@ -15,6 +15,7 @@ from backend.routes.auth import auth_bp
 from backend.routes.profiles import profiles_bp
 from backend.routes.resumes import resumes_bp
 from backend.routes.jobs import jobs_bp
+from backend.routes.matching import matching_bp
 
 
 def create_app(config_class=Config, client_override=None, db_name_override=None):
@@ -46,6 +47,7 @@ def create_app(config_class=Config, client_override=None, db_name_override=None)
     app.register_blueprint(profiles_bp)
     app.register_blueprint(resumes_bp)
     app.register_blueprint(jobs_bp)
+    app.register_blueprint(matching_bp)
 
     # Health check endpoint
     @app.route("/api/health", methods=["GET"])
@@ -53,7 +55,13 @@ def create_app(config_class=Config, client_override=None, db_name_override=None)
         return jsonify({
             "status": "healthy",
             "service": "CareerPilot AI API",
-            "modules": ["Module 1 - Auth", "Module 2 - Master Profile", "Module 3 - AI Resume Generator", "Module 4 - AI Job Discovery"]
+            "modules": [
+                "Module 1 - Auth",
+                "Module 2 - Master Profile",
+                "Module 3 - AI Resume Generator",
+                "Module 4 - AI Job Discovery",
+                "Module 5 - Job Matching & Eligibility"
+            ]
         }), 200
 
     # Global Error Handlers

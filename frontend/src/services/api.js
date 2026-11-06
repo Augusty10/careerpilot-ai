@@ -92,5 +92,18 @@ export const jobAPI = {
   updatePreferences: (preferences) => api.put('/jobs/preferences', preferences),
 };
 
+export const matchingAPI = {
+  getMatch: (jobId, recomputeIfStale = false) =>
+    api.get(`/matches/${jobId}`, { params: { recompute_if_stale: recomputeIfStale } }),
+  computeMatch: (jobId, force = true) =>
+    api.post(`/matches/${jobId}`, null, { params: { force } }),
+  batchMatches: (jobIds) =>
+    api.post('/matches/batch', { job_ids: jobIds }),
+  getMyMatches: (params = {}) =>
+    api.get('/matches', { params }),
+  getRecommendedJobs: (params = {}) =>
+    api.get('/jobs/recommended', { params }),
+};
+
 export default api;
 

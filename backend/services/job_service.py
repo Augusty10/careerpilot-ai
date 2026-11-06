@@ -151,10 +151,34 @@ def get_jobs_feed(user_id: str, query_params: Dict[str, Any]) -> Dict[str, Any]:
     saved_cursor = saved_col.find({"user_id": str(user_id)})
     saved_job_ids = {doc["job_id"] for doc in saved_cursor}
 
-    serialized_jobs = [
-        serialize_job(doc, is_saved=(doc["job_id"] in saved_job_ids))
-        for doc in job_docs
-    ]
+    # Fetch candidate's computed matches for these jobs (Module 5 integration)
+    job_ids = [doc["job_id"] for doc in job_docs]
+    user_matches: Dict[str, Any] = {}
+    try:
+        from backend.database import get_job_matches_collection
+        from bson import ObjectId
+        matches_col = get_job_matches_collection()
+        user_oid = ObjectId(user_id) if isinstance(user_id, str) and ObjectId.is_valid(user_id) else user_id
+        matches_cursor = matches_col.find({
+            "$or": [{"user_id": user_oid}, {"user_id": str(user_id)}],
+            "job_id": {"$in": job_ids}
+        })
+        for m in matches_cursor:
+            user_matches[m["job_id"]] = {
+                "category": m.get("category"),
+                "skill_coverage": m.get("skill_coverage")
+            }
+    except Exception:
+        pass
+
+    serialized_jobs = []
+    for doc in job_docs:
+        s_job = serialize_job(doc, is_saved=(doc["job_id"] in saved_job_ids))
+        if doc["job_id"] in user_matches:
+            s_job["match"] = user_matches[doc["job_id"]]
+        else:
+            s_job["match"] = None
+        serialized_jobs.append(s_job)
 
     # Fresher friendly count
     fresher_count = jobs_col.count_documents({

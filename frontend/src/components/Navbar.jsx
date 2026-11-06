@@ -82,6 +82,17 @@ export const Navbar = () => {
                   Find Jobs
                 </Link>
                 <Link
+                  to="/jobs/recommended"
+                  className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors flex items-center gap-1 ${
+                    isActive('/jobs/recommended')
+                      ? 'bg-indigo-50 text-indigo-700 font-semibold'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  }`}
+                >
+                  <span>🎯</span>
+                  <span>Recommended</span>
+                </Link>
+                <Link
                   to="/settings"
                   className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
                     isActive('/settings')

@@ -146,6 +146,84 @@ Expected JSON Structure:
 """
 
 
+MATCH_EXPLANATION_SYSTEM_PROMPT = """You are an objective career advisor for CareerPilot AI.
+Given structured, rule-based job matching data, write a concise, plain-language 2-3 sentence explanation for the candidate.
+
+CRITICAL HARD RULES:
+1. NEVER mention hiring probability, chance of selection, guarantees, percentages of being hired, or interview odds.
+2. The match category has ALREADY been decided deterministically by rules. You MUST NOT contradict, alter, or attempt to upgrade/downgrade the category.
+3. If category is "not_eligible", explain clearly and respectfully why based on the hard failures (e.g. experience gap, degree gap).
+4. Use measured language like "appears to meet the stated requirement" rather than guaranteeing eligibility.
+5. Highlight matching skills and mention what skills would help bridge any gaps.
+6. Return ONLY the plain-text explanation string without markdown fences, quotes, or headers.
+"""
+
+
+def generate_rules_explanation(match_data: Dict[str, Any]) -> str:
+    """
+    Produces a transparent, plain-language explanation strictly from rule results.
+    Never uses hiring probability or chance-of-selection language.
+    Says 'appears to meet the stated requirement' rather than guaranteeing eligibility.
+    """
+    category = match_data.get("category", "low_match")
+    hard_failures = match_data.get("hard_failures", [])
+    coverage = match_data.get("skill_coverage")
+    skills = match_data.get("skills", {})
+    matched = skills.get("matched", [])
+    related = skills.get("related", [])
+    missing = skills.get("missing", [])
+    edu = match_data.get("education", {})
+    exp = match_data.get("experience", {})
+    grad = match_data.get("graduation_year", {})
+    warnings = match_data.get("warnings", [])
+
+    sentences = []
+
+    if category == "not_eligible":
+        fail_reasons = "; ".join(hard_failures) if hard_failures else "one or more stated requirements are not satisfied"
+        sentences.append(f"Based on stated criteria, you do not currently appear to meet the minimum eligibility: {fail_reasons}.")
+        if exp.get("status") == "below_requirement":
+            sentences.append(f"The job requires {exp.get('job_requirement')}, which exceeds your current stated experience level.")
+        if edu.get("status") == "does_not_meet":
+            sentences.append(f"The position requires {edu.get('job_requirement')}, which differs from your listed qualification.")
+        if grad.get("status") == "does_not_meet":
+            sentences.append(f"The job specifies {grad.get('job_requirement')}, which does not match your graduation year ({grad.get('candidate_value')}).")
+    else:
+        # Strengths & Qualifications
+        edu_status = edu.get("status")
+        exp_status = exp.get("status")
+
+        if edu_status == "meets" and exp_status == "meets_stated_requirement":
+            sentences.append("You appear to meet the stated educational qualifications and fresher experience requirements.")
+        elif edu_status == "meets":
+            sentences.append("Your educational background appears to satisfy the stated degree requirement.")
+        elif exp_status == "meets_stated_requirement":
+            sentences.append("Your background appears to align with the entry-level experience requirements.")
+
+        # Skills breakdown
+        if coverage is not None:
+            if category == "strong_match":
+                sentences.append(f"You have strong technical alignment with {len(matched)} matching skill(s) ({coverage}% skill coverage).")
+            elif category == "partial_match":
+                sentences.append(f"You have partial technical alignment with {len(matched)} matching skill(s) ({coverage}% skill coverage).")
+            else:
+                sentences.append(f"Technical skill overlap is currently limited ({coverage}% skill coverage).")
+
+        if related:
+            rel_items = [f"{r.get('candidate_skill')} for {r.get('job_skill')}" for r in related[:2]]
+            sentences.append(f"You have related background ({', '.join(rel_items)}) providing transferable foundation.")
+
+        if missing:
+            missing_preview = ", ".join(missing[:3])
+            sentences.append(f"Key missing skills to consider bridging: {missing_preview}.")
+
+    if warnings:
+        for w in warnings[:2]:
+            sentences.append(w)
+
+    return " ".join(sentences)
+
+
 def clean_json_response(raw_text: str) -> str:
     """Strips Markdown code fences and whitespace from LLM output."""
     cleaned = raw_text.strip()
@@ -167,6 +245,16 @@ class BaseAIProvider(ABC):
     @abstractmethod
     def generate_role_tailored_resume(self, master_profile: Dict[str, Any], target_role: str) -> Dict[str, Any]:
         """Generates role-tailored structured resume content from an approved master profile."""
+        pass
+
+    @abstractmethod
+    def check_related_skills(self, unmatched_job_skills: list, candidate_skills: list) -> Dict[str, str]:
+        """Identifies related/transferable skills between unmatched job skills and candidate skills."""
+        pass
+
+    @abstractmethod
+    def generate_match_explanation(self, match_data: Dict[str, Any]) -> str:
+        """Generates plain-language explanation of match results without hiring probability language."""
         pass
 
 
@@ -450,6 +538,26 @@ class MockAIProvider(BaseAIProvider):
         validated = ResumeContentSchema(**resume_content)
         return validated.model_dump()
 
+    def check_related_skills(self, unmatched_job_skills: list, candidate_skills: list) -> Dict[str, str]:
+        """Uses deterministic skill alias / related technology mapping for mock mode."""
+        from backend.services.skill_normalizer import get_deterministic_related_skill, normalize_skill
+        related_dict = {}
+        cand_norm_set = {normalize_skill(c) for c in candidate_skills if normalize_skill(c)}
+        for raw_job_skill in unmatched_job_skills:
+            norm_job = normalize_skill(raw_job_skill)
+            if not norm_job:
+                continue
+            for cand_skill in cand_norm_set:
+                rel = get_deterministic_related_skill(norm_job, cand_skill)
+                if rel:
+                    related_dict[norm_job] = cand_skill
+                    break
+        return related_dict
+
+    def generate_match_explanation(self, match_data: Dict[str, Any]) -> str:
+        """Generates plain-language rule-based explanation for mock mode."""
+        return generate_rules_explanation(match_data)
+
 
 class GeminiProvider(BaseAIProvider):
     """Production AI Provider using Google Gemini GenAI SDK."""
@@ -539,6 +647,73 @@ class GeminiProvider(BaseAIProvider):
                 return validated.model_dump()
             except Exception as err2:
                 raise AIExtractionError(f"AI failed to generate valid resume JSON after retry: {err2}")
+
+    def check_related_skills(self, unmatched_job_skills: list, candidate_skills: list) -> Dict[str, str]:
+        """Identifies related skills using Gemini or falls back to deterministic mapping."""
+        if not self.api_key or not unmatched_job_skills or not candidate_skills:
+            return MockAIProvider().check_related_skills(unmatched_job_skills, candidate_skills)
+
+        try:
+            from google import genai
+            client = genai.Client(api_key=self.api_key)
+            prompt = (
+                "You are an expert technical skills taxonomy evaluator for CareerPilot AI.\n"
+                "Given a list of unmatched required job skills and candidate skills, identify any pairs where the candidate skill is a direct alternative, predecessor, or closely related framework/library (e.g. Flask is related to Django, Vue is related to React, PostgreSQL is related to MySQL).\n\n"
+                f"UNMATCHED JOB SKILLS:\n{json.dumps(unmatched_job_skills)}\n\n"
+                f"CANDIDATE SKILLS:\n{json.dumps(candidate_skills)}\n\n"
+                "Return ONLY a JSON dictionary mapping { normalized_job_skill: candidate_skill } for genuine related matches. If none, return {}. Do NOT include markdown fences."
+            )
+            response = client.models.generate_content(
+                model=self.model_name,
+                contents=prompt
+            )
+            cleaned = clean_json_response(response.text)
+            parsed = json.loads(cleaned)
+            if isinstance(parsed, dict):
+                return parsed
+        except Exception:
+            pass
+
+        return MockAIProvider().check_related_skills(unmatched_job_skills, candidate_skills)
+
+    def generate_match_explanation(self, match_data: Dict[str, Any]) -> str:
+        """Generates plain-language explanation of match results using Gemini, falling back to rule-based template."""
+        if not self.api_key:
+            return generate_rules_explanation(match_data)
+
+        try:
+            from google import genai
+            client = genai.Client(api_key=self.api_key)
+
+            summary_payload = {
+                "category": match_data.get("category"),
+                "skill_coverage": match_data.get("skill_coverage"),
+                "matched_skills": match_data.get("skills", {}).get("matched", []),
+                "related_skills": match_data.get("skills", {}).get("related", []),
+                "missing_skills": match_data.get("skills", {}).get("missing", []),
+                "education_status": match_data.get("education", {}).get("status"),
+                "experience_status": match_data.get("experience", {}).get("status"),
+                "hard_failures": match_data.get("hard_failures", []),
+                "warnings": match_data.get("warnings", [])
+            }
+
+            prompt = (
+                f"{MATCH_EXPLANATION_SYSTEM_PROMPT}\n\n"
+                f"STRUCTURED MATCH DATA:\n{json.dumps(summary_payload, default=str)}"
+            )
+
+            response = client.models.generate_content(
+                model=self.model_name,
+                contents=prompt
+            )
+            text = response.text.strip()
+            text = re.sub(r"^[\"']|[\"']$", "", text).strip()
+            if text:
+                return text
+        except Exception:
+            pass
+
+        return generate_rules_explanation(match_data)
 
 
 def get_ai_service() -> BaseAIProvider:

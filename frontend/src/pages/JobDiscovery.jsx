@@ -237,6 +237,13 @@ export default function JobDiscovery() {
         >
           Saved Jobs ({savedJobs.length})
         </button>
+        <Link
+          to="/jobs/recommended"
+          className="pb-3 text-sm font-semibold border-b-2 border-transparent text-indigo-600 hover:text-indigo-800 flex items-center gap-1.5 ml-auto transition-colors"
+        >
+          <span>🎯</span>
+          <span>Recommended For You →</span>
+        </Link>
       </div>
 
       {/* All Jobs View with Filters */}

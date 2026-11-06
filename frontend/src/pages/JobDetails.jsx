@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { jobAPI } from '../services/api';
+import { jobAPI, matchingAPI } from '../services/api';
+import MatchBreakdown from '../components/MatchBreakdown';
 
 export default function JobDetails() {
   const { jobId } = useParams();
@@ -11,8 +12,15 @@ export default function JobDetails() {
   const [errorMsg, setErrorMsg] = useState('');
   const [saving, setSaving] = useState(false);
 
+  // Module 5 Matching state
+  const [match, setMatch] = useState(null);
+  const [loadingMatch, setLoadingMatch] = useState(false);
+  const [recomputing, setRecomputing] = useState(false);
+  const [matchError, setMatchError] = useState('');
+
   useEffect(() => {
     loadJobDetails();
+    loadJobMatch();
   }, [jobId]);
 
   const loadJobDetails = async () => {
@@ -29,6 +37,40 @@ export default function JobDetails() {
       setErrorMsg(err.response?.data?.message || 'Failed to load job details.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadJobMatch = async () => {
+    setLoadingMatch(true);
+    setMatchError('');
+    try {
+      const res = await matchingAPI.getMatch(jobId);
+      if (res.data?.match) {
+        setMatch(res.data.match);
+      }
+    } catch (err) {
+      // Don't alert if match simply hasn't been computed yet
+      const msg = err.response?.data?.message;
+      if (msg && !msg.includes('not found')) {
+        setMatchError(msg);
+      }
+    } finally {
+      setLoadingMatch(false);
+    }
+  };
+
+  const handleComputeMatch = async () => {
+    setRecomputing(true);
+    setMatchError('');
+    try {
+      const res = await matchingAPI.computeMatch(jobId, true);
+      if (res.data?.match) {
+        setMatch(res.data.match);
+      }
+    } catch (err) {
+      setMatchError(err.response?.data?.message || 'Failed to compute match.');
+    } finally {
+      setRecomputing(false);
     }
   };
 
@@ -179,15 +221,63 @@ export default function JobDetails() {
         </div>
       </div>
 
-      {/* Module 5 & 6 Placeholder */}
-      <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 text-center">
-        <div className="inline-flex items-center gap-2 text-indigo-700 font-semibold text-xs tracking-wide uppercase">
-          <span>🎯</span>
-          <span>Eligibility Match & Verification</span>
+      {/* Module 5: Match & Eligibility Section */}
+      {match ? (
+        <MatchBreakdown
+          match={match}
+          onRecompute={handleComputeMatch}
+          recomputing={recomputing}
+        />
+      ) : (
+        <div className="bg-gradient-to-r from-indigo-50/70 to-slate-50 border border-indigo-100 rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div>
+            <div className="inline-flex items-center gap-2 text-indigo-700 font-bold text-xs tracking-wide uppercase">
+              <span>🎯</span>
+              <span>Module 5: AI Job Matching & Eligibility</span>
+            </div>
+            <h3 className="text-sm font-semibold text-slate-800 mt-1">
+              Check how well your approved profile matches this job
+            </h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Evaluates skill coverage, educational alignment, graduation batch, and experience requirements deterministically.
+            </p>
+            {matchError && (
+              <p className="text-xs text-rose-600 mt-2 font-medium">
+                ⚠ {matchError}
+              </p>
+            )}
+          </div>
+          <button
+            id="btn-check-match"
+            onClick={handleComputeMatch}
+            disabled={recomputing || loadingMatch}
+            className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all flex items-center gap-2 shrink-0 disabled:opacity-50"
+          >
+            {recomputing ? (
+              <>
+                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                </svg>
+                <span>Evaluating...</span>
+              </>
+            ) : (
+              <>
+                <span>⚡</span>
+                <span>Check Match & Eligibility</span>
+              </>
+            )}
+          </button>
         </div>
-        <p className="text-xs text-slate-500 mt-1 max-w-lg mx-auto">
-          Candidate eligibility match scoring (Module 5) and recruiter verification (Module 6) coming soon.
-        </p>
+      )}
+
+      {/* Module 6 Placeholder */}
+      <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 flex items-center justify-between text-xs text-slate-500">
+        <div className="flex items-center gap-2">
+          <span>🛡️</span>
+          <span><strong>Module 6 Preview:</strong> Recruiter & company legitimacy verification coming soon.</span>
+        </div>
+        <span className="text-2xs bg-slate-200/80 px-2 py-0.5 rounded font-medium text-slate-600 uppercase">Upcoming</span>
       </div>
 
       {/* Job Details Grid */}

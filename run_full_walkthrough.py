@@ -22,6 +22,7 @@ def main():
     env = os.environ.copy()
     env["USE_MOCK_DB"] = "true"
     env["FLASK_DEBUG"] = "False"
+    env["PYTHONUNBUFFERED"] = "1"
 
     # 1. Start backend with virtualenv python
     py_exec = os.path.abspath(".venv/Scripts/python.exe")
@@ -35,12 +36,14 @@ def main():
         env=env
     )
 
-    if not wait_for_port(5000, timeout=15):
+    if not wait_for_port(5000, timeout=25):
         print("ERROR: Backend failed to start on port 5000")
-        if backend_proc.poll() is not None:
-            out, _ = backend_proc.communicate()
-            print("Backend output:", out)
         backend_proc.terminate()
+        try:
+            out, _ = backend_proc.communicate(timeout=3)
+            print("Backend output:\n", out)
+        except Exception:
+            pass
         sys.exit(1)
     print("Backend is ready on http://127.0.0.1:5000")
 
@@ -62,7 +65,8 @@ def main():
         backend_proc.terminate()
         frontend_proc.terminate()
         sys.exit(1)
-    print("Frontend is ready on http://localhost:5173")
+    print("Frontend is ready on http://127.0.0.1:5173")
+    time.sleep(2)
 
     # 3. Run walkthrough script
     if "--m1" in sys.argv:
@@ -71,8 +75,10 @@ def main():
         walkthrough_file = "frontend/run_walkthrough_m2.js"
     elif "--m3" in sys.argv:
         walkthrough_file = "frontend/run_walkthrough_m3.js"
-    else:
+    elif "--m4" in sys.argv:
         walkthrough_file = "frontend/run_walkthrough_m4.js"
+    else:
+        walkthrough_file = "frontend/run_walkthrough_m5.js"
 
     print(f"\nRunning Puppeteer Browser Walkthrough ({walkthrough_file})...")
     walkthrough_cmd = ["node", walkthrough_file]

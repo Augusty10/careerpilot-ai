@@ -41,3 +41,8 @@ class Config:
     ADZUNA_COUNTRY = os.getenv("ADZUNA_COUNTRY", "in")
     JOB_EXPIRY_DAYS = int(os.getenv("JOB_EXPIRY_DAYS", "45"))
     ENABLE_SAMPLE_SOURCE = os.getenv("ENABLE_SAMPLE_SOURCE", "true").lower() in ("true", "1", "yes")
+
+    # Module 5: Job Matching & Eligibility Settings
+    MATCH_STRONG_THRESHOLD = int(os.getenv("MATCH_STRONG_THRESHOLD", "75"))
+    MATCH_PARTIAL_THRESHOLD = int(os.getenv("MATCH_PARTIAL_THRESHOLD", "40"))
+    MATCH_RELATED_SKILL_WEIGHT = float(os.getenv("MATCH_RELATED_SKILL_WEIGHT", "0.5"))

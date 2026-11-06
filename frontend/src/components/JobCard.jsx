@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import MatchScore from './MatchScore';
 
 export default function JobCard({ job, onToggleSave }) {
   const [saving, setSaving] = useState(false);
@@ -96,6 +97,18 @@ export default function JobCard({ job, onToggleSave }) {
             {job.is_saved ? '❤️' : '🤍'}
           </button>
         </div>
+
+        {/* Module 5: Computed Match Category & Skill Coverage */}
+        {job.match && (
+          <div className="mb-2">
+            <MatchScore
+              category={job.match.category}
+              skillCoverage={job.match.skill_coverage}
+              isStale={job.match.is_stale}
+              size="sm"
+            />
+          </div>
+        )}
 
         {/* Badges: Location, Work Mode, Fresher Status */}
         <div className="flex flex-wrap items-center gap-1.5 my-2.5">

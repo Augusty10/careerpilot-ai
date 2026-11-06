@@ -15,6 +15,7 @@ import Profile from './pages/Profile';
 import ResumeBuilder from './pages/ResumeBuilder';
 import JobDiscovery from './pages/JobDiscovery';
 import JobDetails from './pages/JobDetails';
+import RecommendedJobs from './pages/RecommendedJobs';
 
 export function App() {
   return (
@@ -92,6 +93,14 @@ export function App() {
                 element={
                   <ProtectedRoute>
                     <JobDiscovery />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/jobs/recommended"
+                element={
+                  <ProtectedRoute>
+                    <RecommendedJobs />
                   </ProtectedRoute>
                 }
               />
