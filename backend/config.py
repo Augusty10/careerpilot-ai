@@ -1,0 +1,24 @@
+import os
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Locate and load the root .env file
+BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / ".env")
+
+
+class Config:
+    """Application configuration loaded from environment variables."""
+
+    MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017/careerpilot_db")
+    DB_NAME = os.getenv("DB_NAME", "careerpilot_db")
+    JWT_SECRET = os.getenv("JWT_SECRET", "careerpilot-dev-jwt-secret-key-change-in-production")
+    JWT_EXPIRY_MINUTES = int(os.getenv("JWT_EXPIRY_MINUTES", "60"))
+    FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+    PORT = int(os.getenv("PORT", "5000"))
+    DEBUG = os.getenv("FLASK_DEBUG", "True").lower() in ("true", "1", "yes")
+
+    # Rate limiting configuration (memory storage by default)
+    RATELIMIT_DEFAULT = os.getenv("RATELIMIT_DEFAULT", "200 per day;50 per hour")
+    RATELIMIT_STORAGE_URI = os.getenv("RATELIMIT_STORAGE_URI", "memory://")
+
