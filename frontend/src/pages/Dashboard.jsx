@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { profileAPI, resumeAPI } from '../services/api';
+import { profileAPI, resumeAPI, jobAPI } from '../services/api';
 import Button from '../components/Button';
 
 export const Dashboard = () => {
@@ -10,20 +10,25 @@ export const Dashboard = () => {
 
   const [profile, setProfile] = useState(null);
   const [resumeCount, setResumeCount] = useState(0);
+  const [savedJobsCount, setSavedJobsCount] = useState(0);
   const [profileLoading, setProfileLoading] = useState(true);
 
   useEffect(() => {
     const loadDashboardData = async () => {
       try {
-        const [profileRes, resumesRes] = await Promise.all([
+        const [profileRes, resumesRes, savedRes] = await Promise.all([
           profileAPI.getProfile().catch(() => ({ data: { profile: null } })),
           resumeAPI.listResumes().catch(() => ({ data: { resumes: [] } })),
+          jobAPI.getSavedJobs().catch(() => ({ data: { saved_jobs: [] } })),
         ]);
         if (profileRes.data && profileRes.data.profile) {
           setProfile(profileRes.data.profile);
         }
         if (resumesRes.data && resumesRes.data.resumes) {
           setResumeCount(resumesRes.data.resumes.length);
+        }
+        if (savedRes.data && savedRes.data.saved_jobs) {
+          setSavedJobsCount(savedRes.data.saved_jobs.length);
         }
       } catch (err) {
         // Fallback gracefully
@@ -63,9 +68,9 @@ export const Dashboard = () => {
 
         <div className="relative z-10 max-w-2xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm text-xs font-semibold tracking-wide uppercase text-indigo-100 mb-4 border border-white/20">
-            <span>Module 3 Active</span>
+            <span>Module 4 Active</span>
             <span>•</span>
-            <span>Multiple AI Resume Generator</span>
+            <span>AI Job Discovery</span>
           </div>
 
           <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
@@ -77,18 +82,23 @@ export const Dashboard = () => {
           </p>
 
           <p className="mt-2 text-sm text-indigo-200">
-            Generate multiple role-specific resumes from your single approved Master Career Profile.
+            Discover authorized fresher vacancies, filter by work mode, and bookmark jobs for your applications.
           </p>
 
           <div className="mt-6 flex flex-wrap gap-3">
-            <Link to="/resumes">
+            <Link to="/jobs">
               <Button variant="secondary" className="bg-white text-indigo-900 hover:bg-slate-100 shadow-sm border-0 font-semibold">
-                Generate Role Resumes ({resumeCount})
+                Find Jobs (Saved: {savedJobsCount})
+              </Button>
+            </Link>
+            <Link to="/resumes">
+              <Button variant="outline" className="text-white border-white/30 hover:bg-white/10">
+                Resumes ({resumeCount})
               </Button>
             </Link>
             <Link to="/profile">
               <Button variant="outline" className="text-white border-white/30 hover:bg-white/10">
-                {isApproved ? 'View Master Profile' : 'Complete Profile'}
+                {isApproved ? 'Master Profile' : 'Complete Profile'}
               </Button>
             </Link>
             <Button
@@ -214,12 +224,20 @@ export const Dashboard = () => {
                 <p className="text-xs text-emerald-700 mt-1">Role-specific ATS resumes, truthfulness validator & exports.</p>
               </div>
 
+              <div className="p-3.5 rounded-xl border border-emerald-200 bg-emerald-50/50">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-xs text-emerald-800">Module 4: AI Job Discovery</span>
+                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">Active</span>
+                </div>
+                <p className="text-xs text-emerald-700 mt-1">Normalized fresher vacancies, dedup, and saved pipeline.</p>
+              </div>
+
               <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50 opacity-70">
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-xs text-slate-700">Module 4: Switch Agents</span>
+                  <span className="font-semibold text-xs text-slate-700">Module 5: Matching & Eligibility</span>
                   <span className="text-[10px] font-medium text-slate-500 bg-slate-200 px-1.5 py-0.5 rounded">Upcoming</span>
                 </div>
-                <p className="text-xs text-slate-500 mt-1">Job discovery, verification & coordinator.</p>
+                <p className="text-xs text-slate-500 mt-1">Multi-role match score & candidate eligibility engine.</p>
               </div>
             </div>
           </div>

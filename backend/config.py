@@ -34,3 +34,10 @@ class Config:
         "PRIVATE_STORAGE_DIR",
         str(BASE_DIR / "backend" / "private_storage")
     )
+
+    # Module 4: Job Discovery Settings
+    ADZUNA_APP_ID = os.getenv("ADZUNA_APP_ID", "")
+    ADZUNA_APP_KEY = os.getenv("ADZUNA_APP_KEY", "")
+    ADZUNA_COUNTRY = os.getenv("ADZUNA_COUNTRY", "in")
+    JOB_EXPIRY_DAYS = int(os.getenv("JOB_EXPIRY_DAYS", "45"))
+    ENABLE_SAMPLE_SOURCE = os.getenv("ENABLE_SAMPLE_SOURCE", "true").lower() in ("true", "1", "yes")

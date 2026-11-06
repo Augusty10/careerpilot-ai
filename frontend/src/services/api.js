@@ -81,5 +81,16 @@ export const resumeAPI = {
     }),
 };
 
+export const jobAPI = {
+  getSources: () => api.get('/jobs/sources'),
+  discoverJobs: (params = {}) => api.post('/jobs/discover', params),
+  listJobs: (params = {}) => api.get('/jobs', { params }),
+  getJob: (jobId) => api.get(`/jobs/${jobId}`),
+  saveJob: (jobId, notes = '') => api.post(`/jobs/${jobId}/save`, { notes }),
+  unsaveJob: (jobId) => api.delete(`/jobs/${jobId}/save`),
+  getSavedJobs: () => api.get('/jobs/saved'),
+  updatePreferences: (preferences) => api.put('/jobs/preferences', preferences),
+};
+
 export default api;
 

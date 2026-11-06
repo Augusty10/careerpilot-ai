@@ -72,6 +72,16 @@ export const Navbar = () => {
                   Resumes
                 </Link>
                 <Link
+                  to="/jobs"
+                  className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                    isActive('/jobs')
+                      ? 'bg-indigo-50 text-indigo-700 font-semibold'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  }`}
+                >
+                  Find Jobs
+                </Link>
+                <Link
                   to="/settings"
                   className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
                     isActive('/settings')

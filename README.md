@@ -79,6 +79,90 @@ From one approved Master Career Profile, candidates generate **MULTIPLE role-spe
 
 ---
 
+## 📦 Module 4: AI Job Discovery (Complete)
+
+Module 4 aggregates, normalizes, deduplicates, and filters fresher-friendly job opportunities from **authorized sources**, empowering candidates to discover relevant opportunities without manual hunting across portals.
+
+### ✨ Key Features in Module 4
+- **Authorized Sourcing Architecture**:
+  - `JobSource` abstract base class with standardized timeouts (8s), error isolation, and 5-minute in-memory response caching.
+  - `SampleJobSource`: Ingests 30 curated fresher listings across software, frontend, backend, data, QA, and cybersecurity roles.
+  - `AdzunaJobSource`: Production-ready external API adapter for Adzuna free-tier API (gracefully disabled when API credentials are unset).
+  - Parallel multi-source dispatcher powered by `ThreadPoolExecutor`.
+- **Normalization & Intelligence Engine (`job_normalizer.py`)**:
+  - **Deterministic Experience Parser**: Robust regex extraction handling varied phrasing (`"0-1 years"`, `"Freshers eligible"`, `"2+ yrs"`, `"3-5 years"`).
+  - **Fresher Status Classifier**: Accurately categorizes listings into `fresher_friendly`, `entry_level`, `experience_required`, or `unclear`. Automatically overrides senior/lead titles.
+  - **Skill Dictionary Extractor**: Extracts over 100 industry-standard tech skills from unstructured text descriptions.
+  - **Security Sanitization**: Strips raw HTML tags from external descriptions and verifies that `application_url` strictly adheres to `http://` or `https://`.
+- **Intelligent Deduplication & Expiry Engine (`dedup_service.py`)**:
+  - Fuzzy title matching using `difflib.SequenceMatcher` ($\ge 0.82$) combined with word set overlap ($\ge 0.60$) across identical companies and normalized locations.
+  - Links duplicate postings under a canonical `duplicate_group_id` instead of polluting search results.
+  - Automated expiration checking marking jobs as `expired` if their application deadline has elapsed or if first seen $>45$ days ago.
+- **Candidate Saved Jobs Pipeline & Discovery Preferences**:
+  - Scoped `saved_jobs` collection with unique `(user_id, job_id)` compound index.
+  - Candidates can bookmark and remove opportunities from their personal tracking pipeline.
+  - Discovery preferences (`preferred_roles`, `preferred_locations`, `preferred_work_modes`, `fresher_only`) are persisted to the candidate profile.
+- **Fresher UI Experience (React + Tailwind CSS)**:
+  - Multi-faceted filter bar: Quick-filter fresher role chips, work mode filter (`remote`, `hybrid`, `onsite`), search keyword input, and a single-click "Fresher Friendly Only" toggle.
+  - Clear **Sample Listing Badges & Banners**: Highlights sample listings with visible `⚠️ Sample listing - not a real vacancy` warnings to prevent misleading freshers.
+  - Dedicated **Job Details View** with required skills pills, sanitized description, application link, and placeholder sections for upcoming Module 5 & 6 capabilities (*"Eligibility match and verification coming soon"*).
+  - Dashboard integration featuring live saved jobs counters and one-click discovery navigation.
+
+---
+
+## ⚖️ Legal & Ethical Compliance Policy
+
+CareerPilot AI adheres strictly to legal, ethical, and privacy standards:
+1. **Zero Unauthorized Scraping**: We do not scrape websites in violation of their Terms of Service.
+2. **No Evasion or Circumvention**: The system never bypasses logins, paywalls, CAPTCHAs, rate limits, or `robots.txt`.
+3. **Authorized Sourcing Only**: Data is collected solely from curated sample datasets, official partner/free-tier APIs requiring authentication keys, and permitted public feeds.
+4. **Transparent Sample Labelling**: Demo and sample jobs are explicitly marked in the database (`is_sample: true`) and in the UI with a prominent yellow warning badge.
+5. **Candidate Privacy**: No candidate personal identifiable information (name, email, phone, master profile) is ever transmitted to external job boards or APIs.
+6. **Content Sanitization**: External job descriptions are stripped of raw HTML to prevent cross-site scripting (XSS), and external URLs are strictly validated.
+
+---
+
+## 🔌 How to Add a New Job Source Adapter
+
+Adding a new job source is modular and adheres to the Open-Closed Principle:
+
+```python
+from backend.services.job_sources.base import JobSource
+from typing import List, Dict, Any
+
+class CustomCompanyFeedSource(JobSource):
+    name = "custom_feed"
+
+    def is_configured(self) -> bool:
+        # Check if necessary API keys or feeds are configured in config.py
+        return True
+
+    def fetch_jobs(self, query: str = None, location: str = None, limit: int = 50) -> List[Dict[str, Any]]:
+        # 1. Fetch data from authorized REST API or public JSON/RSS feed
+        # 2. Return a list of raw job dicts matching the standard ingest fields:
+        return [
+            {
+                "title": "Junior Backend Engineer",
+                "company": "Acme Corp",
+                "location": "Bengaluru, India",
+                "work_mode": "hybrid",
+                "experience_text": "0-1 years",
+                "description": "Looking for freshers proficient in Python...",
+                "application_url": "https://acme.careers/jobs/123",
+                "is_sample": False,
+                "source": self.name
+            }
+        ]
+```
+
+Register the new source in `backend/services/job_sources/registry.py`:
+```python
+from backend.services.job_sources.custom_source import CustomCompanyFeedSource
+registry.register(CustomCompanyFeedSource())
+```
+
+---
+
 ## 🛠️ Technology Stack
 
 | Layer | Technologies |
@@ -100,16 +184,20 @@ From one approved Master Career Profile, candidates generate **MULTIPLE role-spe
 ```text
 careerpilot-ai/
 ├── backend/
+│   ├── data/
+│   │   └── sample_jobs.json         # Module 4: 30 curated sample fresher vacancies
 │   ├── models/
 │   │   ├── __init__.py
 │   │   ├── user.py                  # Module 1: User schemas & serialization
 │   │   ├── profile.py               # Module 2: Master Profile schemas & completeness
-│   │   └── resume.py                # Module 3: Resume schemas, validation & serialization
+│   │   ├── resume.py                # Module 3: Resume schemas, validation & serialization
+│   │   └── job.py                   # Module 4: Job schemas, preferences & serialization
 │   ├── routes/
 │   │   ├── __init__.py
 │   │   ├── auth.py                  # Module 1: Auth endpoints (/api/auth)
 │   │   ├── profiles.py              # Module 2: Profile endpoints (/api/profile)
-│   │   └── resumes.py               # Module 3: Resume generation & export (/api/resumes)
+│   │   ├── resumes.py               # Module 3: Resume generation & export (/api/resumes)
+│   │   └── jobs.py                  # Module 4: Job discovery & saved jobs (/api/jobs)
 │   ├── services/
 │   │   ├── __init__.py
 │   │   ├── auth_service.py          # Module 1: @token_required decorator, Bcrypt & JWT
@@ -117,7 +205,16 @@ careerpilot-ai/
 │   │   ├── ai_service.py            # Modules 2 & 3: Swappable AI provider (Gemini / Mock Mode)
 │   │   ├── resume_validator.py      # Module 3: Deterministic truthfulness validator
 │   │   ├── resume_export_service.py # Module 3: ATS PDF & DOCX generator (Modern & Classic)
-│   │   └── resume_generation_service.py # Module 3: Versioning, generation & private storage
+│   │   ├── resume_generation_service.py # Module 3: Versioning, generation & private storage
+│   │   ├── job_normalizer.py        # Module 4: Experience parsing, fresher classification & sanitization
+│   │   ├── dedup_service.py         # Module 4: SequenceMatcher fuzzy deduplication & expiration engine
+│   │   ├── job_service.py           # Module 4: Discovery coordination, search/filter & saved jobs
+│   │   └── job_sources/
+│   │       ├── __init__.py
+│   │       ├── base.py              # Module 4: JobSource base class with caching & timeout
+│   │       ├── sample_source.py     # Module 4: Sample job listings loader
+│   │       ├── api_source_example.py # Module 4: Adzuna API adapter
+│   │       └── registry.py          # Module 4: Source registry & parallel dispatcher
 │   ├── private_storage/             # Private user uploaded resumes & exports (gitignored)
 │   ├── app.py                       # Flask app factory, CORS, Rate Limiter & Blueprints
 │   ├── config.py                    # Environment configuration loader (.env)
@@ -138,7 +235,8 @@ careerpilot-ai/
 │   │   │   ├── SkillTagInput.jsx    # Module 2: Categorized chip input component
 │   │   │   ├── ResumeCard.jsx       # Module 3: Resume card with version, badges & actions
 │   │   │   ├── ResumePreview.jsx    # Module 3: Live visual ATS preview (Modern & Classic)
-│   │   │   └── ResumeEditor.jsx     # Module 3: Interactive modal editor with truthfulness alerts
+│   │   │   ├── ResumeEditor.jsx     # Module 3: Interactive modal editor with truthfulness alerts
+│   │   │   └── JobCard.jsx          # Module 4: Job card with sample badge, fresher pill & save toggle
 │   │   ├── context/
 │   │   │   └── AuthContext.jsx      # React Context (user, login, register, logout)
 │   │   ├── pages/
@@ -149,11 +247,13 @@ careerpilot-ai/
 │   │   │   ├── Register.jsx         # Registration page
 │   │   │   ├── ResetPassword.jsx    # Reset password with token
 │   │   │   ├── ResumeBuilder.jsx    # Module 3: Multiple Resume Generator hub & gallery
+│   │   │   ├── JobDiscovery.jsx     # Module 4: Job discovery feed, search, filter chips & saved tab
+│   │   │   ├── JobDetails.jsx       # Module 4: Full job details, sample banner & M5/M6 placeholders
 │   │   │   └── Settings.jsx         # Name update & password change
 │   │   ├── services/
-│   │   │   ├── api.js               # Axios instance with authAPI, profileAPI & resumeAPI
+│   │   │   ├── api.js               # Axios instance with authAPI, profileAPI, resumeAPI & jobAPI
 │   │   │   └── token.js             # Token storage abstraction (memory + localStorage)
-│   │   ├── App.jsx                  # React Router routes (/resumes, /profile, /dashboard, etc.)
+│   │   ├── App.jsx                  # React Router routes (/jobs, /jobs/:jobId, /resumes, /profile, etc.)
 │   │   ├── index.css                # Tailwind CSS base styles
 │   │   └── main.jsx                 # Vite React entry point
 │   ├── index.html
@@ -170,7 +270,8 @@ careerpilot-ai/
 │   ├── test_register.py             # Registration tests
 │   ├── test_resume_parser.py        # Module 2: Magic bytes, parsing, empty PDF & storage tests
 │   ├── test_resume_validator.py     # Module 3: Truthfulness validator & anti-hallucination tests
-│   └── test_resume_generator.py     # Module 3: Resume generation, versions, batch & export tests
+│   ├── test_resume_generator.py     # Module 3: Resume generation, versions, batch & export tests
+│   └── test_job_discovery.py        # Module 4: Sourcing, parsing, classifier, dedup, expiry & saved jobs
 ├── run_full_walkthrough.py          # Automated browser walkthrough orchestrator
 ├── .env.example
 ├── .gitignore
@@ -200,6 +301,11 @@ cp .env.example .env
 | `AI_PROVIDER` | AI provider (`gemini`) | `gemini` |
 | `GEMINI_API_KEY` | Google Gemini API key (optional if `AI_MOCK_MODE=true`) | *(Optional in dev)* |
 | `AI_MODEL` | Gemini model name | `gemini-2.5-flash` |
+| `ENABLE_SAMPLE_SOURCE` | Enable curated sample fresher jobs feed | `true` |
+| `ADZUNA_APP_ID` | Adzuna Job Search API Application ID | *(Optional)* |
+| `ADZUNA_APP_KEY` | Adzuna Job Search API Key | *(Optional)* |
+| `ADZUNA_COUNTRY` | Adzuna country code | `in` |
+| `JOB_EXPIRY_DAYS` | Cutoff in days before job is marked expired | `45` |
 
 ---
 
@@ -238,32 +344,33 @@ Visit `http://localhost:5173` in your browser.
 
 ## 🧪 Running Automated Tests
 
-Run the full pytest suite (covering Modules 1, 2, and 3):
+Run the full pytest suite (covering Modules 1, 2, 3, and 4):
 
 ```bash
 .\.venv\Scripts\pytest -v tests
 ```
 
-**53 comprehensive tests pass with 100% success rate:**
+**63 comprehensive tests pass with 100% success rate:**
 - ✅ **Module 1 (Auth)**: Registration, duplicate prevention, password complexity, login verification, token protection, generic error responses, password reset lifecycle.
 - ✅ **Module 2 (Master Career Profile)**: PDF/DOCX magic bytes validation, text extraction, empty PDF handling, private storage isolation, skeleton creation, profile upsert, validation, approval lifecycle, user isolation.
-- ✅ **Module 3 (Multiple Resume Generator)**:
-  - `test_extract_master_skills_set`: Whitelist construction from master profile skills and project tech stacks.
-  - `test_validator_strips_unverified_skills`: Auto-stripping unverified or hallucinated skills with warning log.
-  - `test_validator_enforces_truthful_personal_and_education`: Locking personal details and education strictly to master facts.
-  - `test_validator_strips_unverified_certifications`: Stripping hallucinated credentials.
-  - `test_generate_fails_if_profile_not_approved`: Blocking generation when profile is in draft status (HTTP 400).
-  - `test_generate_succeeds_once_profile_approved`: Successfully generating role-tailored resume upon approval.
-  - `test_version_increments_for_same_role`: Incrementing versions (`v1` -> `v2`) for the same target role.
-  - `test_batch_generate_multiple_roles`: Batch generation of up to 5 roles in a single request.
-  - `test_resume_marked_outdated_when_master_profile_updated`: Dynamically setting `is_outdated = True` when master profile timestamp exceeds generation timestamp.
-  - `test_update_resume_and_duplicate`: In-place editing, truthfulness re-validation, ATS re-export, and duplication.
-  - `test_download_pdf_and_docx`: Verifying PDF and DOCX file generation, MIME types, and streaming headers.
-  - `test_cross_user_isolation`: Strict tenant isolation denying unauthorized reads, updates, downloads, or deletions.
+- ✅ **Module 3 (Multiple Resume Generator)**: Master skill whitelisting, anti-hallucination stripping, education/personal detail lock, approval gate enforcement, version auto-incrementing, batch multi-role generation, outdated badge tracking, and ATS PDF/DOCX export.
+- ✅ **Module 4 (AI Job Discovery)**:
+  - `test_sample_source_returns_sample_jobs`: Verifying sample source loads 30 fresher jobs with correct schema.
+  - `test_normalizer_experience_parsing`: Regex parsing of `0-1 years`, `Freshers eligible`, `2+ yrs`, and `3-5 years`.
+  - `test_normalizer_fresher_status_classification`: Deterministic classification into `fresher_friendly`, `entry_level`, and `experience_required`.
+  - `test_normalizer_security_sanitization`: HTML stripping, XSS entity sanitization, and URL protocol checks (`http/https`).
+  - `test_deduplication_engine`: SequenceMatcher similarity ($\ge 0.82$) and word set overlap ($\ge 0.60$) linking duplicates to a canonical group.
+  - `test_expiration_engine`: Detecting passed application deadlines and flagging jobs older than 45 days as expired.
+  - `test_discover_and_filtering_endpoints`: Full discovery workflow, multi-source ingestion, query/role/work_mode filtering, and fresher-only toggle.
+  - `test_saved_jobs_lifecycle_and_isolation`: Saving, retrieving, and unsaving jobs with strict user tenant isolation.
+  - `test_adzuna_adapter_disabled_gracefully_when_keys_missing`: Verifying external API adapters fail safe and silent when keys are omitted.
+  - `test_unauthenticated_requests_return_401`: Enforcing `@token_required` protection across all job discovery endpoints.
 
 ---
 
-## 🌐 API Reference (Module 3 - Resumes)
+## 🌐 API Reference
+
+### Module 3: Role-Specific Resumes (`/api/resumes`)
 
 | Method | Endpoint | Protection | Description |
 |---|---|---|---|
@@ -277,8 +384,23 @@ Run the full pytest suite (covering Modules 1, 2, and 3):
 | `DELETE` | `/api/resumes/<id>` | `@token_required` | Delete resume and its associated PDF/DOCX files |
 | `GET` | `/api/resumes/<id>/download?format=pdf\|docx` | `@token_required` | Download ATS-optimized PDF or DOCX file |
 
+### Module 4: Job Discovery & Saved Jobs (`/api/jobs`)
+
+| Method | Endpoint | Protection | Description |
+|---|---|---|---|
+| `POST` | `/api/jobs/discover` | `@token_required` | Trigger multi-source job discovery ingestion, normalization, and deduplication |
+| `GET` | `/api/jobs` | `@token_required` | Query, filter, and paginate normalized active jobs (`role`, `work_mode`, `fresher_only`, `search`) |
+| `GET` | `/api/jobs/<job_id>` | `@token_required` | Retrieve full details of a specific job posting by ID |
+| `POST` | `/api/jobs/save` | `@token_required` | Save a job to candidate's personal tracking pipeline |
+| `DELETE` | `/api/jobs/save/<job_id>` | `@token_required` | Remove a job from candidate's saved pipeline |
+| `GET` | `/api/jobs/saved` | `@token_required` | List all saved jobs for current user |
+| `GET` | `/api/jobs/preferences` | `@token_required` | Retrieve candidate discovery preferences from profile |
+| `PUT` | `/api/jobs/preferences` | `@token_required` | Update candidate discovery preferences (`preferred_roles`, `locations`, etc.) |
+| `GET` | `/api/jobs/sources` | `@token_required` | List registered job source adapters and their operational status |
+
 ---
 
 ## 🔮 Upcoming Modules (Roadmap)
-- **Module 4**: Switch Agents & Job Discovery (Scraping, matching, recruiter verification)
-- **Module 5**: Application Assistant & Tracker
+- **Module 5**: AI Eligibility Match Scoring & Explanation Engine (Profile-to-Job gap analysis, score breakdown)
+- **Module 6**: Recruiter & Legitimacy Verification (Domain checking, ghost job detection, salary sanity)
+- **Module 7**: Application Assistant & Pipeline Tracker

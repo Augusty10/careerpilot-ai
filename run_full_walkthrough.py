@@ -69,8 +69,10 @@ def main():
         walkthrough_file = "frontend/run_walkthrough.js"
     elif "--m2" in sys.argv:
         walkthrough_file = "frontend/run_walkthrough_m2.js"
-    else:
+    elif "--m3" in sys.argv:
         walkthrough_file = "frontend/run_walkthrough_m3.js"
+    else:
+        walkthrough_file = "frontend/run_walkthrough_m4.js"
 
     print(f"\nRunning Puppeteer Browser Walkthrough ({walkthrough_file})...")
     walkthrough_cmd = ["node", walkthrough_file]

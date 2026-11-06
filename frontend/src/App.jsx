@@ -13,6 +13,8 @@ import Dashboard from './pages/Dashboard';
 import Settings from './pages/Settings';
 import Profile from './pages/Profile';
 import ResumeBuilder from './pages/ResumeBuilder';
+import JobDiscovery from './pages/JobDiscovery';
+import JobDetails from './pages/JobDetails';
 
 export function App() {
   return (
@@ -86,6 +88,22 @@ export function App() {
                 }
               />
               <Route
+                path="/jobs"
+                element={
+                  <ProtectedRoute>
+                    <JobDiscovery />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/jobs/:jobId"
+                element={
+                  <ProtectedRoute>
+                    <JobDetails />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
                 path="/settings"
                 element={
                   <ProtectedRoute>
@@ -105,7 +123,7 @@ export function App() {
               <p className="font-semibold text-slate-700">
                 CareerPilot AI — One Profile. Multiple Careers. Smarter Applications.
               </p>
-              <p>AI Career Platform for Freshers & Graduates • Modules 1, 2 & 3 Active</p>
+              <p>AI Career Platform for Freshers & Graduates • Modules 1, 2, 3 & 4 Active</p>
             </div>
           </footer>
         </div>

@@ -77,6 +77,21 @@ def _ensure_indexes(db):
     except Exception as e:
         print(f"[Database] Index notice (resumes): {e}")
 
+    try:
+        db.jobs.create_index([("job_id", ASCENDING)], unique=True)
+        db.jobs.create_index([("status", ASCENDING), ("posted_at", -1)])
+        db.jobs.create_index([("fresher_status", ASCENDING), ("status", ASCENDING)])
+    except Exception as e:
+        print(f"[Database] Index notice (jobs): {e}")
+
+    try:
+        db.saved_jobs.create_index(
+            [("user_id", ASCENDING), ("job_id", ASCENDING)],
+            unique=True
+        )
+    except Exception as e:
+        print(f"[Database] Index notice (saved_jobs): {e}")
+
 
 def get_users_collection(db=None):
     """Convenience helper returning the 'users' collection."""
@@ -94,6 +109,18 @@ def get_resumes_collection(db=None):
     """Convenience helper returning the 'resumes' collection."""
     database = db if db is not None else get_db()
     return database["resumes"]
+
+
+def get_jobs_collection(db=None):
+    """Convenience helper returning the 'jobs' collection."""
+    database = db if db is not None else get_db()
+    return database["jobs"]
+
+
+def get_saved_jobs_collection(db=None):
+    """Convenience helper returning the 'saved_jobs' collection."""
+    database = db if db is not None else get_db()
+    return database["saved_jobs"]
 
 
 def close_db():
