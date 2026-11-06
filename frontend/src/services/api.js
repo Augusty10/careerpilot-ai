@@ -55,5 +55,31 @@ export const authAPI = {
   updateMe: (data) => api.put('/auth/me', data),
 };
 
+export const profileAPI = {
+  getProfile: () => api.get('/profile'),
+  saveProfile: (data) => api.put('/profile', data),
+  uploadResume: (formData) => api.post('/profile/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 30000, // 30s for upload and AI extraction
+  }),
+  approveProfile: () => api.post('/profile/approve'),
+  deleteProfile: () => api.delete('/profile'),
+};
+
+export const resumeAPI = {
+  getRoles: () => api.get('/resumes/roles'),
+  listResumes: () => api.get('/resumes'),
+  getResume: (id) => api.get(`/resumes/${id}`),
+  generateResume: (data) => api.post('/resumes/generate', data),
+  generateMultipleResumes: (data) => api.post('/resumes/generate-multiple', data),
+  updateResume: (id, data) => api.put(`/resumes/${id}`, data),
+  duplicateResume: (id) => api.post(`/resumes/${id}/duplicate`),
+  deleteResume: (id) => api.delete(`/resumes/${id}`),
+  downloadResume: (id, format = 'pdf') =>
+    api.get(`/resumes/${id}/download?format=${format}`, {
+      responseType: 'blob',
+    }),
+};
+
 export default api;
 

@@ -12,6 +12,8 @@ from backend.config import Config
 from backend.database import get_db
 from backend.limiter import limiter
 from backend.routes.auth import auth_bp
+from backend.routes.profiles import profiles_bp
+from backend.routes.resumes import resumes_bp
 
 
 def create_app(config_class=Config, client_override=None, db_name_override=None):
@@ -40,14 +42,16 @@ def create_app(config_class=Config, client_override=None, db_name_override=None)
 
     # Register Blueprints
     app.register_blueprint(auth_bp)
+    app.register_blueprint(profiles_bp)
+    app.register_blueprint(resumes_bp)
 
     # Health check endpoint
     @app.route("/api/health", methods=["GET"])
     def health_check():
         return jsonify({
             "status": "healthy",
-            "service": "CareerPilot AI Auth API",
-            "module": "Module 1 - User Registration & Login"
+            "service": "CareerPilot AI API",
+            "modules": ["Module 1 - Auth", "Module 2 - Master Profile", "Module 3 - AI Resume Generator"]
         }), 200
 
     # Global Error Handlers

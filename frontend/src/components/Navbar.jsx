@@ -52,6 +52,26 @@ export const Navbar = () => {
                   Dashboard
                 </Link>
                 <Link
+                  to="/profile"
+                  className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                    isActive('/profile')
+                      ? 'bg-indigo-50 text-indigo-700 font-semibold'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  }`}
+                >
+                  My Profile
+                </Link>
+                <Link
+                  to="/resumes"
+                  className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                    isActive('/resumes')
+                      ? 'bg-indigo-50 text-indigo-700 font-semibold'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  }`}
+                >
+                  Resumes
+                </Link>
+                <Link
                   to="/settings"
                   className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
                     isActive('/settings')

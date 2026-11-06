@@ -228,3 +228,9 @@ dist-ssr/
 
 # Local debug tokens
 .latest_reset_token.txt
+
+# Private User Upload Storage (Module 2)
+backend/private_storage/
+
+# Sample generated test files
+Alex_Johnson_Fresher_Resume.pdf

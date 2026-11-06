@@ -1,16 +1,46 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { profileAPI, resumeAPI } from '../services/api';
 import Button from '../components/Button';
 
 export const Dashboard = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
+  const [profile, setProfile] = useState(null);
+  const [resumeCount, setResumeCount] = useState(0);
+  const [profileLoading, setProfileLoading] = useState(true);
+
+  useEffect(() => {
+    const loadDashboardData = async () => {
+      try {
+        const [profileRes, resumesRes] = await Promise.all([
+          profileAPI.getProfile().catch(() => ({ data: { profile: null } })),
+          resumeAPI.listResumes().catch(() => ({ data: { resumes: [] } })),
+        ]);
+        if (profileRes.data && profileRes.data.profile) {
+          setProfile(profileRes.data.profile);
+        }
+        if (resumesRes.data && resumesRes.data.resumes) {
+          setResumeCount(resumesRes.data.resumes.length);
+        }
+      } catch (err) {
+        // Fallback gracefully
+      } finally {
+        setProfileLoading(false);
+      }
+    };
+
+    loadDashboardData();
+  }, []);
+
   const handleLogout = async () => {
     await logout();
     navigate('/login');
   };
+
+  const isApproved = profile?.profile_status === 'approved';
 
   const formatDate = (isoString) => {
     if (!isoString) return 'Recently';
@@ -33,9 +63,9 @@ export const Dashboard = () => {
 
         <div className="relative z-10 max-w-2xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm text-xs font-semibold tracking-wide uppercase text-indigo-100 mb-4 border border-white/20">
-            <span>Module 1 Active</span>
+            <span>Module 3 Active</span>
             <span>•</span>
-            <span>Fresher Career Platform</span>
+            <span>Multiple AI Resume Generator</span>
           </div>
 
           <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
@@ -47,19 +77,24 @@ export const Dashboard = () => {
           </p>
 
           <p className="mt-2 text-sm text-indigo-200">
-            Your career portal is ready. Module 1 (Authentication & User Access) is active and verified.
+            Generate multiple role-specific resumes from your single approved Master Career Profile.
           </p>
 
           <div className="mt-6 flex flex-wrap gap-3">
-            <Link to="/settings">
+            <Link to="/resumes">
               <Button variant="secondary" className="bg-white text-indigo-900 hover:bg-slate-100 shadow-sm border-0 font-semibold">
-                Account Settings
+                Generate Role Resumes ({resumeCount})
+              </Button>
+            </Link>
+            <Link to="/profile">
+              <Button variant="outline" className="text-white border-white/30 hover:bg-white/10">
+                {isApproved ? 'View Master Profile' : 'Complete Profile'}
               </Button>
             </Link>
             <Button
-              variant="outline"
+              variant="ghost"
               onClick={handleLogout}
-              className="text-white border-white/30 hover:bg-white/10"
+              className="text-indigo-200 hover:text-white hover:bg-white/10"
             >
               Sign Out
             </Button>
@@ -67,41 +102,77 @@ export const Dashboard = () => {
         </div>
       </div>
 
+      {/* Profile Callout Prompt if Not Approved */}
+      {!profileLoading && !isApproved && (
+        <div className="mb-8 p-5 rounded-2xl bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-300 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-start gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center font-bold text-lg shrink-0">
+              ⚡
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-slate-900">
+                Complete your Master Profile
+              </h3>
+              <p className="text-xs text-slate-600 mt-0.5">
+                Upload your resume or fill in your details to create the single source of truth for all your upcoming AI applications.
+              </p>
+            </div>
+          </div>
+          <Link to="/profile">
+            <Button variant="primary" size="sm" className="whitespace-nowrap shadow-sm">
+              Complete Profile →
+            </Button>
+          </Link>
+        </div>
+      )}
+
       {/* Account Overview & Fresher Modules */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Profile Snapshot Card */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-          <h2 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500" />
-            Active Session Info
-          </h2>
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+          <div>
+            <h2 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              Candidate Snapshot
+            </h2>
 
-          <div className="space-y-3 text-sm">
-            <div className="flex justify-between py-2 border-b border-slate-100">
-              <span className="text-slate-500 font-medium">Name</span>
-              <span className="text-slate-900 font-semibold">{user?.name}</span>
-            </div>
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between py-2 border-b border-slate-100">
+                <span className="text-slate-500 font-medium">Name</span>
+                <span className="text-slate-900 font-semibold">{user?.name}</span>
+              </div>
 
-            <div className="flex justify-between py-2 border-b border-slate-100">
-              <span className="text-slate-500 font-medium">Email</span>
-              <span className="text-slate-900 font-semibold truncate max-w-[180px]">{user?.email}</span>
-            </div>
+              <div className="flex justify-between py-2 border-b border-slate-100">
+                <span className="text-slate-500 font-medium">Email</span>
+                <span className="text-slate-900 font-semibold truncate max-w-[180px]">{user?.email}</span>
+              </div>
 
-            <div className="flex justify-between py-2 border-b border-slate-100">
-              <span className="text-slate-500 font-medium">Member Since</span>
-              <span className="text-slate-900">{formatDate(user?.created_at)}</span>
-            </div>
+              <div className="flex justify-between py-2 border-b border-slate-100">
+                <span className="text-slate-500 font-medium">Master Profile</span>
+                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${
+                  isApproved
+                    ? 'bg-emerald-100 text-emerald-800'
+                    : 'bg-amber-100 text-amber-800'
+                }`}>
+                  {isApproved ? 'Approved ✅' : 'Draft / Incomplete'}
+                </span>
+              </div>
 
-            <div className="flex justify-between py-2">
-              <span className="text-slate-500 font-medium">Auth Status</span>
-              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800">
-                Verified JWT
-              </span>
+              <div className="flex justify-between py-2">
+                <span className="text-slate-500 font-medium">Completeness</span>
+                <span className="text-slate-900 font-bold">{profile?.completeness || 0}%</span>
+              </div>
             </div>
+          </div>
+
+          <div className="mt-4 pt-3 border-t border-slate-100 text-center">
+            <Link to="/profile" className="text-xs font-semibold text-indigo-600 hover:underline">
+              Manage Master Career Profile →
+            </Link>
           </div>
         </div>
 
-        {/* Modular Architecture Roadmap Placeholder */}
+        {/* Modular Architecture Roadmap */}
         <div className="md:col-span-2 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-4">
@@ -110,37 +181,37 @@ export const Dashboard = () => {
                 CareerPilot AI Modules
               </h2>
               <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">
-                Step 1 of 5
+                Step 2 of 5
               </span>
             </div>
 
             <p className="text-sm text-slate-600 mb-4">
-              Authentication is complete! All subsequent modules will plug directly into the reusable <code className="px-1.5 py-0.5 bg-slate-100 rounded text-indigo-600 font-mono text-xs">@token_required</code> decorator and session context.
+              Module 2 provides the structured foundation. All future resumes, job matching, and agent submissions are powered by this master profile.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="p-3.5 rounded-xl border border-emerald-200 bg-emerald-50/50">
                 <div className="flex items-center justify-between">
                   <span className="font-semibold text-xs text-emerald-800">Module 1: User & Auth</span>
-                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">Ready</span>
+                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">Active</span>
                 </div>
                 <p className="text-xs text-emerald-700 mt-1">JWT sessions, bcrypt security & password reset.</p>
               </div>
 
-              <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50 opacity-70">
+              <div className="p-3.5 rounded-xl border border-emerald-200 bg-emerald-50/50">
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-xs text-slate-700">Module 2: Master Career Profile</span>
-                  <span className="text-[10px] font-medium text-slate-500 bg-slate-200 px-1.5 py-0.5 rounded">Upcoming</span>
+                  <span className="font-semibold text-xs text-emerald-800">Module 2: Master Career Profile</span>
+                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">Active</span>
                 </div>
-                <p className="text-xs text-slate-500 mt-1">Education, projects, internships & skills.</p>
+                <p className="text-xs text-emerald-700 mt-1">PDF/DOCX AI extraction & verified profile truth.</p>
               </div>
 
-              <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50 opacity-70">
+              <div className="p-3.5 rounded-xl border border-emerald-200 bg-emerald-50/50">
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-xs text-slate-700">Module 3: AI Resume Agent</span>
-                  <span className="text-[10px] font-medium text-slate-500 bg-slate-200 px-1.5 py-0.5 rounded">Upcoming</span>
+                  <span className="font-semibold text-xs text-emerald-800">Module 3: Multiple Resume Generator</span>
+                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">Active</span>
                 </div>
-                <p className="text-xs text-slate-500 mt-1">Multiple role-specific resume generation.</p>
+                <p className="text-xs text-emerald-700 mt-1">Role-specific ATS resumes, truthfulness validator & exports.</p>
               </div>
 
               <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50 opacity-70">
@@ -154,7 +225,7 @@ export const Dashboard = () => {
           </div>
 
           <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between">
-            <span className="text-xs text-slate-500">Need to change your name or password?</span>
+            <span className="text-xs text-slate-500">Need to update your contact or password?</span>
             <Link to="/settings" className="text-xs font-semibold text-indigo-600 hover:underline">
               Go to Settings →
             </Link>
@@ -166,4 +237,3 @@ export const Dashboard = () => {
 };
 
 export default Dashboard;
-

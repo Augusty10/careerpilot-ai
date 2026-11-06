@@ -59,17 +59,41 @@ def get_db(client_override=None, db_name_override=None):
 
 
 def _ensure_indexes(db):
-    """Creates essential database indexes, including unique email index on users."""
+    """Creates essential database indexes, including unique email index on users and unique user_id index on candidate_profiles."""
     try:
         db.users.create_index([("email", ASCENDING)], unique=True)
     except Exception as e:
-        print(f"[Database] Index notice: {e}")
+        print(f"[Database] Index notice (users.email): {e}")
+
+    try:
+        db.candidate_profiles.create_index([("user_id", ASCENDING)], unique=True)
+    except Exception as e:
+        print(f"[Database] Index notice (candidate_profiles.user_id): {e}")
+
+    try:
+        db.resumes.create_index(
+            [("user_id", ASCENDING), ("target_role", ASCENDING), ("version", ASCENDING)]
+        )
+    except Exception as e:
+        print(f"[Database] Index notice (resumes): {e}")
 
 
 def get_users_collection(db=None):
     """Convenience helper returning the 'users' collection."""
     database = db if db is not None else get_db()
     return database["users"]
+
+
+def get_profiles_collection(db=None):
+    """Convenience helper returning the 'candidate_profiles' collection."""
+    database = db if db is not None else get_db()
+    return database["candidate_profiles"]
+
+
+def get_resumes_collection(db=None):
+    """Convenience helper returning the 'resumes' collection."""
+    database = db if db is not None else get_db()
+    return database["resumes"]
 
 
 def close_db():

@@ -11,6 +11,8 @@ import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import Dashboard from './pages/Dashboard';
 import Settings from './pages/Settings';
+import Profile from './pages/Profile';
+import ResumeBuilder from './pages/ResumeBuilder';
 
 export function App() {
   return (
@@ -68,6 +70,22 @@ export function App() {
                 }
               />
               <Route
+                path="/profile"
+                element={
+                  <ProtectedRoute>
+                    <Profile />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/resumes"
+                element={
+                  <ProtectedRoute>
+                    <ResumeBuilder />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
                 path="/settings"
                 element={
                   <ProtectedRoute>
@@ -87,7 +105,7 @@ export function App() {
               <p className="font-semibold text-slate-700">
                 CareerPilot AI — One Profile. Multiple Careers. Smarter Applications.
               </p>
-              <p>Module 1: User Registration & Login Platform for Freshers & Graduates.</p>
+              <p>AI Career Platform for Freshers & Graduates • Modules 1, 2 & 3 Active</p>
             </div>
           </footer>
         </div>

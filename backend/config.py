@@ -22,3 +22,15 @@ class Config:
     RATELIMIT_DEFAULT = os.getenv("RATELIMIT_DEFAULT", "200 per day;50 per hour")
     RATELIMIT_STORAGE_URI = os.getenv("RATELIMIT_STORAGE_URI", "memory://")
 
+    # Module 2: AI & Resume Extraction Settings
+    AI_PROVIDER = os.getenv("AI_PROVIDER", "gemini")
+    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+    AI_MODEL = os.getenv("AI_MODEL", "gemini-2.5-flash")
+    AI_MOCK_MODE = os.getenv("AI_MOCK_MODE", "true").lower() in ("true", "1", "yes")
+
+    # File Upload & Private Storage (5 MB max)
+    MAX_CONTENT_LENGTH = 5 * 1024 * 1024
+    PRIVATE_STORAGE_DIR = os.getenv(
+        "PRIVATE_STORAGE_DIR",
+        str(BASE_DIR / "backend" / "private_storage")
+    )

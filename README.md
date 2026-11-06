@@ -6,25 +6,76 @@ CareerPilot AI is an AI-powered career platform designed specifically for freshe
 
 ---
 
-## 📦 Module 1: User Registration & Login (Current Milestone)
+## 📦 Module 1: User Registration & Authentication (Complete)
 
-Module 1 delivers the production-ready authentication and user management foundation for CareerPilot AI. All subsequent modules (Master Profile, AI Resumes, Job Discovery, Switch Agents) build upon this authenticated infrastructure.
+- **Registration & Login**: Bcrypt salted password hashing, JWT access token authentication, duplicate email prevention.
+- **Protected Sessions**: Reusable `@token_required` decorator attaching the current user to requests.
+- **Account Management**: Protected `/api/auth/me` endpoints for display name changes and secure password updates.
+- **Password Recovery**: Single-use token flow with SHA-256 token hashing, expiration enforcement, and console links.
+- **Security Hardening**: Anti-enumeration error handling, `Flask-Limiter` rate limiting, strict CORS, and Pydantic validation.
 
-### ✨ Key Features in Module 1
-- **User Registration**: Real-time form validation, bcrypt password hashing, and duplicate email prevention.
-- **Secure Login**: Rate-limited endpoint returning a signed JWT access token and sanitized user profile.
-- **Protected Sessions**: `@token_required` decorator attaching the current user to Flask requests and enforcing authorization across private routes.
-- **Account Management**: Protected `/api/auth/me` endpoints to retrieve user profiles, edit display names, and change passwords with current-password verification.
-- **Password Recovery**: Secure, time-limited token flow with SHA-256 token hashing, single-use enforcement, replay protection, and console link output for development.
-- **Security Hardening**:
-  - Bcrypt salted password hashing (plaintext passwords are never stored or logged).
-  - Pydantic schema validation enforcing email formatting and password complexity (min 8 chars, letter + number).
-  - Normalization of all email addresses to lowercase.
-  - Zero sensitive leakage: `password_hash` and reset tokens are strictly excluded from all API responses.
-  - Generic error messages ("Invalid email or password") to eliminate user enumeration vectors.
-  - Rate limiting via `Flask-Limiter` on login and forgot-password endpoints.
-  - Strict CORS origin filtering restricted to `FRONTEND_URL`.
-  - Abstraction layer in `services/token.js` ready for future `httpOnly` cookie migration.
+---
+
+## 📦 Module 2: Master Career Profile (Complete)
+
+Module 2 creates the **Master Career Profile**—the single source of truth for all candidate career data, powering role-specific resumes and AI agent job discovery.
+
+### ✨ Key Features in Module 2
+- **Master Profile Schema (`candidate_profiles` collection)**:
+  - Scoped to `user_id` with a database-level unique index.
+  - Multi-section schema: Personal, Education, Categorized Skills (Languages, Frameworks, Databases, Tools, Other), Projects, Internships, Certifications, Achievements, Work Experience, and Preferences.
+- **Secure Resume Upload & Parsing**:
+  - Accepts `.pdf` and `.docx` up to 5 MB.
+  - **Magic Bytes Validation**: Verifies `%PDF-` for PDFs and `PK\x03\x04` for Word documents; immediately rejects spoofed executables or unsupported files.
+  - Digital text extraction via PyMuPDF (`pymupdf`) and `python-docx`.
+  - Scanned/empty PDF detection with friendly guidance.
+  - Files stored in **isolated, private storage** (`backend/private_storage/<user_id>/`), gitignored, and never exposed to the public.
+- **AI Resume Extraction & Verification**:
+  - Swappable AI Provider architecture (`services/ai_service.py`).
+  - **Strict Anti-Hallucination Rules**: Extracts only explicit facts; never fabricates degrees, skills, or dates; leaves missing fields empty.
+  - Automatic self-correcting retry on malformed JSON outputs.
+  - **Critical User-Review Mandate**: Extraction results are returned directly to the client **WITHOUT saving to the database**. The candidate reviews, edits, and explicitly clicks *"Approve & Save"* to make it the master profile.
+  - **Built-in Mock Mode (`AI_MOCK_MODE=true`)**: Allows immediate local testing and full end-to-end walkthroughs without needing an external API key.
+- **Modern Fresher UI (React + Tailwind CSS)**:
+  - Multi-section tabbed form with dynamic row additions/deletions.
+  - Interactive skill chips/tag inputs with categorization.
+  - Dynamic **Profile Strength & Completeness Bar** (0% to 100%).
+  - Highlighted empty fields after AI extraction.
+  - Dashboard prompts alerting the candidate when their master profile is incomplete.
+  - User-controlled privacy deletion endpoint.
+
+---
+
+## 📦 Module 3: Multiple AI-Powered Resume Generator (Complete)
+
+From one approved Master Career Profile, candidates generate **MULTIPLE role-specific resumes** (e.g., Python Developer, Full Stack Developer, Data Analyst, Frontend Engineer, QA Automation Engineer). The underlying career facts never change; only selection, ordering, and presentation change per target role.
+
+### ✨ Key Features in Module 3
+- **100% Truthfulness Guarantee & Resume Validator (`resume_validator.py`)**:
+  - **Zero Hallucination / Invention**: Resume skills are verified against the candidate's master profile whitelist; any unverified or hallucinated skill is automatically stripped with an explicit warning.
+  - Personal details (name, email, phone, links) and education details (degree, institution, year, score) are strictly bound to master profile facts.
+  - Projects and internships trace back via `source_index` to verified master entries.
+  - Only master profiles with `profile_status == "approved"` can generate resumes.
+- **Role-Aware AI Tailoring (`ai_service.py`)**:
+  - Intelligently categorizes and prioritizes the candidate's verified skills for the target role (e.g., UI/React technologies for Frontend, Python/SQL/Flask for Backend/Data).
+  - Crafts a targeted 2-3 sentence professional summary tailored to the role.
+  - Re-writes and emphasizes project accomplishments with action-oriented bullet points.
+- **Version History & Outdated Tracking**:
+  - Compound MongoDB index: `(user_id, target_role, version)`.
+  - Automatic version incrementing (`v1`, `v2`, `v3`) for iterative generations without overwriting past variants.
+  - **Outdated Warning Badge**: Displays a clear `⚠️ Outdated` badge whenever the candidate's Master Profile has been updated since the resume was generated (`master_updated_at > generated_from_profile_updated_at`).
+- **ATS-Optimized PDF & DOCX Export (`resume_export_service.py`)**:
+  - Single-column ATS-friendly layouts free of unparseable tables or confusing graphics.
+  - Two visual styles:
+    - **Modern**: Clean sans-serif, slate typography, subtle indigo section headers.
+    - **Classic**: Traditional serif, centered header, classic horizontal divider rules.
+  - Streaming downloads via authenticated endpoints with ownership verification.
+- **Interactive Resume Hub & Editor (React + Tailwind CSS)**:
+  - Predefined fresher role chips + custom role input.
+  - **Batch Generation Mode**: Generate up to 5 role-specific resumes in a single request.
+  - Live ATS Resume Preview with dynamic Modern/Classic template switching.
+  - In-browser Resume Editor to tweak summaries and project bullets while enforcing master truthfulness.
+  - Duplicate-to-new-version action and delete functionality.
 
 ---
 
@@ -34,10 +85,13 @@ Module 1 delivers the production-ready authentication and user management founda
 |---|---|
 | **Frontend** | React 18, Vite, React Router 6, Axios, Tailwind CSS |
 | **Backend** | Python 3.14+, Flask 3, Flask-CORS, Flask-Limiter, Python-dotenv |
-| **Database** | MongoDB (PyMongo) with automatic fallback to MongoMock for local testing |
+| **Database** | MongoDB (PyMongo) with compound indexes & MongoMock fallback |
+| **Document Export** | ReportLab 5 (`reportlab.platypus`), `python-docx` |
+| **File Parsing** | PyMuPDF (`pymupdf`), `python-docx` |
+| **AI Integration** | Swappable AI Engine (Google Gemini via `google-genai` SDK / Role-Aware Mock Mode) |
 | **Authentication** | JWT (HS256) via PyJWT, Bcrypt password hashing |
 | **Validation** | Pydantic v2, email-validator |
-| **Testing** | Pytest, MongoMock |
+| **Testing** | Pytest, MongoMock, Puppeteer Core (End-to-End Walkthroughs) |
 
 ---
 
@@ -48,40 +102,58 @@ careerpilot-ai/
 ├── backend/
 │   ├── models/
 │   │   ├── __init__.py
-│   │   └── user.py             # Pydantic validation schemas & serialization
+│   │   ├── user.py                  # Module 1: User schemas & serialization
+│   │   ├── profile.py               # Module 2: Master Profile schemas & completeness
+│   │   └── resume.py                # Module 3: Resume schemas, validation & serialization
 │   ├── routes/
 │   │   ├── __init__.py
-│   │   └── auth.py             # Auth Blueprint (register, login, logout, reset, /me)
+│   │   ├── auth.py                  # Module 1: Auth endpoints (/api/auth)
+│   │   ├── profiles.py              # Module 2: Profile endpoints (/api/profile)
+│   │   └── resumes.py               # Module 3: Resume generation & export (/api/resumes)
 │   ├── services/
 │   │   ├── __init__.py
-│   │   └── auth_service.py     # Password hashing, JWT utils & @token_required decorator
-│   ├── app.py                  # Flask app factory, CORS, Rate Limiter & error handlers
-│   ├── config.py               # Environment configuration loader (.env)
-│   ├── database.py             # MongoDB connection, unique email index & fallback
-│   ├── limiter.py              # Flask-Limiter instance
-│   └── requirements.txt        # Python backend dependencies
+│   │   ├── auth_service.py          # Module 1: @token_required decorator, Bcrypt & JWT
+│   │   ├── resume_service.py        # Module 2: Magic bytes validation, text extraction & storage
+│   │   ├── ai_service.py            # Modules 2 & 3: Swappable AI provider (Gemini / Mock Mode)
+│   │   ├── resume_validator.py      # Module 3: Deterministic truthfulness validator
+│   │   ├── resume_export_service.py # Module 3: ATS PDF & DOCX generator (Modern & Classic)
+│   │   └── resume_generation_service.py # Module 3: Versioning, generation & private storage
+│   ├── private_storage/             # Private user uploaded resumes & exports (gitignored)
+│   ├── app.py                       # Flask app factory, CORS, Rate Limiter & Blueprints
+│   ├── config.py                    # Environment configuration loader (.env)
+│   ├── database.py                  # PyMongo client, compound indexes & MongoMock fallback
+│   ├── limiter.py                   # Flask-Limiter instance
+│   └── requirements.txt             # Python backend dependencies
 ├── frontend/
 │   ├── src/
 │   │   ├── components/
 │   │   │   ├── Alert.jsx            # Reusable dismissible alerts
-│   │   │   ├── Button.jsx           # Button with spinner loading states
-│   │   │   ├── Input.jsx            # Form input with inline errors & password toggle
-│   │   │   ├── Navbar.jsx           # Responsive header with branding & auth navigation
+│   │   │   ├── Button.jsx           # Button with loading spinner states
+│   │   │   ├── CompletenessBar.jsx  # Module 2: Dynamic profile strength progress bar
+│   │   │   ├── Input.jsx            # Form input with inline validation & password toggle
+│   │   │   ├── Navbar.jsx           # Responsive header with branding & navigation
 │   │   │   ├── ProtectedRoute.jsx   # Route guard for authenticated users
-│   │   │   └── PublicRoute.jsx      # Route guard redirecting logged-in users to /dashboard
+│   │   │   ├── PublicRoute.jsx      # Route guard redirecting logged-in users to /dashboard
+│   │   │   ├── ResumeUploadCard.jsx # Module 2: Drag & drop resume upload with AI loading state
+│   │   │   ├── SkillTagInput.jsx    # Module 2: Categorized chip input component
+│   │   │   ├── ResumeCard.jsx       # Module 3: Resume card with version, badges & actions
+│   │   │   ├── ResumePreview.jsx    # Module 3: Live visual ATS preview (Modern & Classic)
+│   │   │   └── ResumeEditor.jsx     # Module 3: Interactive modal editor with truthfulness alerts
 │   │   ├── context/
 │   │   │   └── AuthContext.jsx      # React Context (user, login, register, logout)
 │   │   ├── pages/
-│   │   │   ├── Register.jsx         # Registration page
-│   │   │   ├── Login.jsx            # Login page
+│   │   │   ├── Dashboard.jsx        # Fresher dashboard with module status & quick actions
 │   │   │   ├── ForgotPassword.jsx   # Password reset request
+│   │   │   ├── Login.jsx            # Login page
+│   │   │   ├── Profile.jsx          # Module 2: Master Career Profile multi-section builder
+│   │   │   ├── Register.jsx         # Registration page
 │   │   │   ├── ResetPassword.jsx    # Reset password with token
-│   │   │   ├── Dashboard.jsx        # Fresher dashboard placeholder
+│   │   │   ├── ResumeBuilder.jsx    # Module 3: Multiple Resume Generator hub & gallery
 │   │   │   └── Settings.jsx         # Name update & password change
 │   │   ├── services/
-│   │   │   ├── api.js               # Axios instance with JWT interceptor & 401 handling
+│   │   │   ├── api.js               # Axios instance with authAPI, profileAPI & resumeAPI
 │   │   │   └── token.js             # Token storage abstraction (memory + localStorage)
-│   │   ├── App.jsx                  # React Router routes
+│   │   ├── App.jsx                  # React Router routes (/resumes, /profile, /dashboard, etc.)
 │   │   ├── index.css                # Tailwind CSS base styles
 │   │   └── main.jsx                 # Vite React entry point
 │   ├── index.html
@@ -90,13 +162,17 @@ careerpilot-ai/
 │   ├── postcss.config.js
 │   └── vite.config.js
 ├── tests/
-│   ├── __init__.py
-│   ├── conftest.py             # Pytest fixtures & isolated in-memory DB
-│   ├── test_register.py        # Registration tests
-│   ├── test_login.py           # Login tests & generic error checks
-│   ├── test_auth_me.py         # Protected route & password update tests
-│   └── test_password_reset.py  # End-to-end password recovery flow tests
-├── .env.example                # Template for environment variables
+│   ├── conftest.py                  # Pytest fixtures & isolated in-memory DB
+│   ├── test_auth_me.py              # Protected route & password update tests
+│   ├── test_login.py                # Login tests & generic error checks
+│   ├── test_password_reset.py       # Password recovery flow tests
+│   ├── test_profile.py              # Module 2: Profile CRUD, approval, isolation & AI retry tests
+│   ├── test_register.py             # Registration tests
+│   ├── test_resume_parser.py        # Module 2: Magic bytes, parsing, empty PDF & storage tests
+│   ├── test_resume_validator.py     # Module 3: Truthfulness validator & anti-hallucination tests
+│   └── test_resume_generator.py     # Module 3: Resume generation, versions, batch & export tests
+├── run_full_walkthrough.py          # Automated browser walkthrough orchestrator
+├── .env.example
 ├── .gitignore
 └── README.md
 ```
@@ -117,11 +193,13 @@ cp .env.example .env
 | `DB_NAME` | Database name | `careerpilot_db` |
 | `JWT_SECRET` | Secret key for signing JWT tokens | *(Required in production)* |
 | `JWT_EXPIRY_MINUTES` | Access token lifespan in minutes | `60` |
-| `FRONTEND_URL` | Allowed CORS origin for the React app | `http://localhost:5173` |
+| `FRONTEND_URL` | Allowed CORS origin for React | `http://localhost:5173` |
 | `PORT` | Backend server port | `5000` |
 | `FLASK_DEBUG` | Flask debug mode | `True` |
-
-> **Note on MongoDB**: If you have a local MongoDB daemon or MongoDB Atlas URI, specify it in `MONGO_URI`. If no MongoDB server is running locally, CareerPilot AI automatically and gracefully falls back to an in-memory database (`mongomock`) so you can develop and run tests without external friction.
+| `AI_MOCK_MODE` | Enable offline mock AI extraction & generation without an API key | `true` |
+| `AI_PROVIDER` | AI provider (`gemini`) | `gemini` |
+| `GEMINI_API_KEY` | Google Gemini API key (optional if `AI_MOCK_MODE=true`) | *(Optional in dev)* |
+| `AI_MODEL` | Gemini model name | `gemini-2.5-flash` |
 
 ---
 
@@ -130,92 +208,77 @@ cp .env.example .env
 ### 1. Backend Setup
 
 ```bash
-# 1. Create a Python virtual environment
-python -m venv .venv
+# 1. Activate Python virtual environment
+.\.venv\Scripts\Activate.ps1   # Windows PowerShell
+# or: source .venv/bin/activate  # Linux/macOS
 
-# 2. Activate the virtual environment
-# Windows (PowerShell):
-.\.venv\Scripts\Activate.ps1
-# Windows (Command Prompt):
-.\.venv\Scripts\activate.bat
-# Linux / macOS:
-source .venv/bin/activate
-
-# 3. Install backend dependencies
+# 2. Install dependencies
 pip install -r backend/requirements.txt
 
-# 4. Start the backend development server
+# 3. Start Flask backend
 python backend/app.py
 ```
 
-The backend will start at `http://127.0.0.1:5000` with CORS enabled for `http://localhost:5173`.
-
----
-
 ### 2. Frontend Setup
 
-In a new terminal window:
-
 ```bash
-# 1. Navigate to the frontend directory
+# 1. Navigate to frontend directory
 cd frontend
 
-# 2. Install frontend dependencies
+# 2. Install dependencies
 npm install
 
-# 3. Start the Vite React development server
+# 3. Start Vite dev server
 npm run dev
 ```
 
-Open your browser at `http://localhost:5173`.
+Visit `http://localhost:5173` in your browser.
 
 ---
 
 ## 🧪 Running Automated Tests
 
-A comprehensive `pytest` test suite is included in `/tests`, covering registration, login, security rules, protected sessions, and the complete password recovery lifecycle:
+Run the full pytest suite (covering Modules 1, 2, and 3):
 
 ```bash
-# Ensure virtual environment is activated
 .\.venv\Scripts\pytest -v tests
 ```
 
-### Test Suite Highlights
-- ✅ `test_register_success`: Validates account creation (HTTP 201).
-- ✅ `test_register_duplicate_email_rejected`: Enforces unique email constraint (HTTP 409).
-- ✅ `test_register_weak_password_rejected`: Enforces 8+ chars with letters and numbers.
-- ✅ `test_register_invalid_email_rejected`: Enforces RFC email format.
-- ✅ `test_login_success`: Validates JWT token and profile issuance (HTTP 200).
-- ✅ `test_login_wrong_password_rejected`: Enforces generic 401 error.
-- ✅ `test_login_unknown_email_same_generic_error`: Confirms identical generic errors across missing users and bad passwords (anti-enumeration).
-- ✅ `test_me_without_token_returns_401`: Verifies `@token_required` rejects unauthenticated calls.
-- ✅ `test_me_with_valid_token_returns_user`: Verifies authenticated profile extraction.
-- ✅ `test_put_me_update_name`: Verifies profile name updates.
-- ✅ `test_put_me_change_password`: Verifies password changes requiring old password verification.
-- ✅ `test_password_reset_end_to_end`: Tests full forgot password -> token -> reset -> new login flow.
-- ✅ `test_password_reset_reused_token_rejected`: Ensures single-use reset token security.
-- ✅ `test_password_reset_expired_token_rejected`: Ensures token expiration enforcement.
-- ✅ `test_password_hash_never_returned`: Enforces that `password_hash` is never exposed in any response.
+**53 comprehensive tests pass with 100% success rate:**
+- ✅ **Module 1 (Auth)**: Registration, duplicate prevention, password complexity, login verification, token protection, generic error responses, password reset lifecycle.
+- ✅ **Module 2 (Master Career Profile)**: PDF/DOCX magic bytes validation, text extraction, empty PDF handling, private storage isolation, skeleton creation, profile upsert, validation, approval lifecycle, user isolation.
+- ✅ **Module 3 (Multiple Resume Generator)**:
+  - `test_extract_master_skills_set`: Whitelist construction from master profile skills and project tech stacks.
+  - `test_validator_strips_unverified_skills`: Auto-stripping unverified or hallucinated skills with warning log.
+  - `test_validator_enforces_truthful_personal_and_education`: Locking personal details and education strictly to master facts.
+  - `test_validator_strips_unverified_certifications`: Stripping hallucinated credentials.
+  - `test_generate_fails_if_profile_not_approved`: Blocking generation when profile is in draft status (HTTP 400).
+  - `test_generate_succeeds_once_profile_approved`: Successfully generating role-tailored resume upon approval.
+  - `test_version_increments_for_same_role`: Incrementing versions (`v1` -> `v2`) for the same target role.
+  - `test_batch_generate_multiple_roles`: Batch generation of up to 5 roles in a single request.
+  - `test_resume_marked_outdated_when_master_profile_updated`: Dynamically setting `is_outdated = True` when master profile timestamp exceeds generation timestamp.
+  - `test_update_resume_and_duplicate`: In-place editing, truthfulness re-validation, ATS re-export, and duplication.
+  - `test_download_pdf_and_docx`: Verifying PDF and DOCX file generation, MIME types, and streaming headers.
+  - `test_cross_user_isolation`: Strict tenant isolation denying unauthorized reads, updates, downloads, or deletions.
 
 ---
 
-## 🌐 API Reference (Module 1)
+## 🌐 API Reference (Module 3 - Resumes)
 
 | Method | Endpoint | Protection | Description |
 |---|---|---|---|
-| `POST` | `/api/auth/register` | Public | Create new fresher user account |
-| `POST` | `/api/auth/login` | Rate-limited (5/min) | Authenticate user & receive JWT |
-| `POST` | `/api/auth/logout` | Public | Session logout confirmation |
-| `POST` | `/api/auth/forgot-password` | Rate-limited (3/min) | Request time-limited reset link (link printed to console) |
-| `POST` | `/api/auth/reset-password` | Public | Reset password using valid token |
-| `GET` | `/api/auth/me` | `@token_required` | Get current user's profile |
-| `PUT` | `/api/auth/me` | `@token_required` | Update name or change password |
-| `GET` | `/api/health` | Public | Service health & module status |
+| `GET` | `/api/resumes/roles` | `@token_required` | Get recommended fresher target roles |
+| `POST` | `/api/resumes/generate` | `@token_required` | Generate tailored resume for a specific role from approved profile |
+| `POST` | `/api/resumes/generate-multiple` | `@token_required` | Batch generate resumes for up to 5 target roles |
+| `GET` | `/api/resumes` | `@token_required` | List all user resumes with versioning & `is_outdated` flag |
+| `GET` | `/api/resumes/<id>` | `@token_required` | Retrieve single resume by ID |
+| `PUT` | `/api/resumes/<id>` | `@token_required` | Update resume content/template with truthfulness check and re-export |
+| `POST` | `/api/resumes/<id>/duplicate` | `@token_required` | Duplicate resume to create a new version |
+| `DELETE` | `/api/resumes/<id>` | `@token_required` | Delete resume and its associated PDF/DOCX files |
+| `GET` | `/api/resumes/<id>/download?format=pdf\|docx` | `@token_required` | Download ATS-optimized PDF or DOCX file |
 
 ---
 
 ## 🔮 Upcoming Modules (Roadmap)
-- **Module 2**: Master Career Profile (Education, Projects, Skills, Internships)
-- **Module 3**: AI Resume Generator (Tailored, role-specific resumes)
-- **Module 4**: Job Discovery & Switch Agent Coordination (Scraping, matching, recruiter verification)
+- **Module 4**: Switch Agents & Job Discovery (Scraping, matching, recruiter verification)
 - **Module 5**: Application Assistant & Tracker
