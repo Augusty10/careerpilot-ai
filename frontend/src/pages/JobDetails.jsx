@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { jobAPI, matchingAPI } from '../services/api';
+import { jobAPI, matchingAPI, verificationAPI } from '../services/api';
 import MatchBreakdown from '../components/MatchBreakdown';
+import VerificationBadge from '../components/VerificationBadge';
+import VerificationReport from '../components/VerificationReport';
 
 export default function JobDetails() {
   const { jobId } = useParams();
@@ -18,9 +20,14 @@ export default function JobDetails() {
   const [recomputing, setRecomputing] = useState(false);
   const [matchError, setMatchError] = useState('');
 
+  // Module 6 Verification state
+  const [verification, setVerification] = useState(null);
+  const [loadingVerif, setLoadingVerif] = useState(false);
+
   useEffect(() => {
     loadJobDetails();
     loadJobMatch();
+    loadJobVerification();
   }, [jobId]);
 
   const loadJobDetails = async () => {
@@ -30,6 +37,9 @@ export default function JobDetails() {
       const res = await jobAPI.getJob(jobId);
       if (res.data?.job) {
         setJob(res.data.job);
+        if (res.data.job.verification) {
+          setVerification(res.data.job.verification);
+        }
       } else {
         setErrorMsg('Job posting not found.');
       }
@@ -56,6 +66,20 @@ export default function JobDetails() {
       }
     } finally {
       setLoadingMatch(false);
+    }
+  };
+
+  const loadJobVerification = async () => {
+    setLoadingVerif(true);
+    try {
+      const res = await verificationAPI.getVerification(jobId);
+      if (res.data?.verification) {
+        setVerification(res.data.verification);
+      }
+    } catch (err) {
+      // Gracefully ignore if not computed yet
+    } finally {
+      setLoadingVerif(false);
     }
   };
 

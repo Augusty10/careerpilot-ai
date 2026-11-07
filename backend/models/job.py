@@ -33,6 +33,9 @@ class JobSchema(BaseModel):
     application_url: str = Field(..., max_length=500)
     source: str = Field(..., max_length=50)
     is_sample: bool = False
+    is_test_scenario: bool = False
+    recruiter_name: Optional[str] = Field(default=None, max_length=120)
+    recruiter_email: Optional[str] = Field(default=None, max_length=150)
     posted_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     deadline: Optional[datetime] = None
     status: JobStatusType = "active"

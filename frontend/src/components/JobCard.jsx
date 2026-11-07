@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import MatchScore from './MatchScore';
+import VerificationBadge from './VerificationBadge';
 
 export default function JobCard({ job, onToggleSave }) {
   const [saving, setSaving] = useState(false);
@@ -110,8 +111,13 @@ export default function JobCard({ job, onToggleSave }) {
           </div>
         )}
 
-        {/* Badges: Location, Work Mode, Fresher Status */}
+        {/* Badges: Location, Work Mode, Fresher Status & Verification */}
         <div className="flex flex-wrap items-center gap-1.5 my-2.5">
+          {job.verification ? (
+            <VerificationBadge status={job.verification.overall_status} size="sm" />
+          ) : job.is_sample && !job.is_test_scenario ? (
+            <VerificationBadge status="not_applicable" size="sm" />
+          ) : null}
           <span
             className={`text-2xs font-semibold px-2 py-0.5 rounded-full border ${fresherBadge.classes}`}
           >

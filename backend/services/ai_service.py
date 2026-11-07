@@ -257,6 +257,11 @@ class BaseAIProvider(ABC):
         """Generates plain-language explanation of match results without hiring probability language."""
         pass
 
+    @abstractmethod
+    def check_job_suspicious_patterns(self, title: str, description: str) -> List[Dict[str, Any]]:
+        """Scans job description for subtle suspicious patterns as a second opinion."""
+        pass
+
 
 class MockAIProvider(BaseAIProvider):
     """
@@ -558,6 +563,24 @@ class MockAIProvider(BaseAIProvider):
         """Generates plain-language rule-based explanation for mock mode."""
         return generate_rules_explanation(match_data)
 
+    def check_job_suspicious_patterns(self, title: str, description: str) -> List[Dict[str, Any]]:
+        """Mock AI second opinion scanning for common subtle recruiter concerns."""
+        text_lower = f"{title} {description}".lower()
+        warnings = []
+        if "no experience needed" in text_lower and "high pay" in text_lower:
+            warnings.append({
+                "severity": "low",
+                "message": "Disproportionate pay promised for zero experience.",
+                "exact_quote": "no experience needed"
+            })
+        if "confidential client" in text_lower and "deposit" in text_lower:
+            warnings.append({
+                "severity": "medium",
+                "message": "Unnamed client requesting financial commitment.",
+                "exact_quote": "confidential client"
+            })
+        return warnings
+
 
 class GeminiProvider(BaseAIProvider):
     """Production AI Provider using Google Gemini GenAI SDK."""
@@ -714,6 +737,45 @@ class GeminiProvider(BaseAIProvider):
             pass
 
         return generate_rules_explanation(match_data)
+
+    def check_job_suspicious_patterns(self, title: str, description: str) -> List[Dict[str, Any]]:
+        if not self.api_key:
+            return []
+        try:
+            from google import genai
+            client = genai.Client(api_key=self.api_key)
+            prompt = (
+                "You are an AI job fraud detection assistant for CareerPilot AI.\n"
+                "Analyze the following job title and description for subtle red flags (e.g. pressure tactics, vague hiring, unrealistic expectations).\n"
+                "STRICT RULES:\n"
+                "1. You may ONLY output LOW or MEDIUM concerns.\n"
+                "2. You MUST cite the exact verbatim text snippet you rely on in 'exact_quote'.\n"
+                "3. If no suspicious cues are found, return an empty array [].\n"
+                "4. Output ONLY a valid JSON array of objects: [{\"severity\": \"low\"|\"medium\", \"message\": \"...\", \"exact_quote\": \"...\"}].\n\n"
+                f"TITLE: {title}\nDESCRIPTION: {description}"
+            )
+            response = client.models.generate_content(
+                model=self.model_name,
+                contents=prompt
+            )
+            cleaned = clean_json_markdown(response.text.strip())
+            items = json.loads(cleaned)
+            if isinstance(items, list):
+                valid = []
+                for it in items:
+                    if isinstance(it, dict) and "message" in it and "exact_quote" in it:
+                        sev = it.get("severity", "low")
+                        if sev not in ("low", "medium"):
+                            sev = "low"
+                        valid.append({
+                            "severity": sev,
+                            "message": it["message"][:200],
+                            "exact_quote": it["exact_quote"][:150]
+                        })
+                return valid
+        except Exception:
+            pass
+        return []
 
 
 def get_ai_service() -> BaseAIProvider:

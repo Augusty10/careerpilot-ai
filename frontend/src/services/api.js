@@ -105,5 +105,18 @@ export const matchingAPI = {
     api.get('/jobs/recommended', { params }),
 };
 
+export const verificationAPI = {
+  getVerification: (jobId) =>
+    api.get(`/verification/${jobId}`),
+  runVerification: (jobId) =>
+    api.post(`/verification/${jobId}`),
+  submitRecruiterDetails: (jobId, data) =>
+    api.put(`/verification/${jobId}/recruiter`, data),
+  reportJob: (jobId, data) =>
+    api.post(`/verification/${jobId}/report`, data),
+  listVerifications: (params = {}) =>
+    api.get('/verification', { params }),
+};
+
 export default api;
 

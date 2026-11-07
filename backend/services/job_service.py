@@ -154,8 +154,9 @@ def get_jobs_feed(user_id: str, query_params: Dict[str, Any]) -> Dict[str, Any]:
     # Fetch candidate's computed matches for these jobs (Module 5 integration)
     job_ids = [doc["job_id"] for doc in job_docs]
     user_matches: Dict[str, Any] = {}
+    job_verifs: Dict[str, Any] = {}
     try:
-        from backend.database import get_job_matches_collection
+        from backend.database import get_job_matches_collection, get_job_verifications_collection
         from bson import ObjectId
         matches_col = get_job_matches_collection()
         user_oid = ObjectId(user_id) if isinstance(user_id, str) and ObjectId.is_valid(user_id) else user_id
@@ -168,6 +169,14 @@ def get_jobs_feed(user_id: str, query_params: Dict[str, Any]) -> Dict[str, Any]:
                 "category": m.get("category"),
                 "skill_coverage": m.get("skill_coverage")
             }
+
+        # Module 6: verification summary
+        verif_col = get_job_verifications_collection()
+        verif_cursor = verif_col.find({"job_id": {"$in": job_ids}})
+        for v in verif_cursor:
+            job_verifs[v["job_id"]] = {
+                "overall_status": v.get("overall_status", "needs_verification")
+            }
     except Exception:
         pass
 
@@ -178,6 +187,12 @@ def get_jobs_feed(user_id: str, query_params: Dict[str, Any]) -> Dict[str, Any]:
             s_job["match"] = user_matches[doc["job_id"]]
         else:
             s_job["match"] = None
+
+        if doc["job_id"] in job_verifs:
+            s_job["verification"] = job_verifs[doc["job_id"]]
+        else:
+            s_job["verification"] = None
+
         serialized_jobs.append(s_job)
 
     # Fresher friendly count
@@ -213,7 +228,21 @@ def get_job_by_id(user_id: str, job_id: str) -> Optional[Dict[str, Any]]:
         return None
 
     is_saved = bool(saved_col.find_one({"user_id": str(user_id), "job_id": job_doc["job_id"]}))
-    return serialize_job(job_doc, is_saved=is_saved)
+    serialized = serialize_job(job_doc, is_saved=is_saved)
+
+    try:
+        from backend.database import get_job_verifications_collection
+        from backend.models.verification import serialize_verification
+        verif_col = get_job_verifications_collection()
+        verif_doc = verif_col.find_one({"job_id": job_doc["job_id"]})
+        if verif_doc:
+            serialized["verification"] = serialize_verification(verif_doc)
+        else:
+            serialized["verification"] = None
+    except Exception:
+        serialized["verification"] = None
+
+    return serialized
 
 
 def save_job(user_id: str, job_id: str, notes: str = "") -> Dict[str, Any]:

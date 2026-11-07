@@ -46,3 +46,13 @@ class Config:
     MATCH_STRONG_THRESHOLD = int(os.getenv("MATCH_STRONG_THRESHOLD", "75"))
     MATCH_PARTIAL_THRESHOLD = int(os.getenv("MATCH_PARTIAL_THRESHOLD", "40"))
     MATCH_RELATED_SKILL_WEIGHT = float(os.getenv("MATCH_RELATED_SKILL_WEIGHT", "0.5"))
+
+    # Module 6: Company & Recruiter Verification Settings
+    VERIFICATION_CACHE_TTL_HOURS = int(os.getenv("VERIFICATION_CACHE_TTL_HOURS", "24"))
+    DOMAIN_MIN_AGE_DAYS = int(os.getenv("DOMAIN_MIN_AGE_DAYS", "180"))
+    VERIFICATION_NETWORK_TIMEOUT = int(os.getenv("VERIFICATION_NETWORK_TIMEOUT", "5"))
+    MCA_API_KEY = os.getenv("MCA_API_KEY", "")
+    VERIFICATION_RULES_PATH = os.getenv(
+        "VERIFICATION_RULES_PATH",
+        str(BASE_DIR / "backend" / "config" / "verification_rules.json")
+    )
