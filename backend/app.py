@@ -63,7 +63,8 @@ def create_app(config_class=Config, client_override=None, db_name_override=None)
                 "Module 3 - AI Resume Generator",
                 "Module 4 - AI Job Discovery",
                 "Module 5 - Job Matching & Eligibility",
-                "Module 6 - Recruiter & Legitimacy Verification"
+                "Module 6 - Recruiter & Legitimacy Verification",
+                "Module 7 - Job-Specific Resume Customization"
             ]
         }), 200
 

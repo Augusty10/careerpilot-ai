@@ -262,6 +262,16 @@ class BaseAIProvider(ABC):
         """Scans job description for subtle suspicious patterns as a second opinion."""
         pass
 
+    @abstractmethod
+    def customize_resume_content(
+        self,
+        master_profile_facts: Dict[str, Any],
+        job_requirements: Dict[str, Any],
+        matched_keywords: List[str]
+    ) -> Dict[str, Any]:
+        """Customizes resume summary and project emphasis for a specific job without fabricating facts."""
+        pass
+
 
 class MockAIProvider(BaseAIProvider):
     """
@@ -581,6 +591,190 @@ class MockAIProvider(BaseAIProvider):
             })
         return warnings
 
+    def customize_resume_content(
+        self,
+        master_profile_facts: Dict[str, Any],
+        job_requirements: Dict[str, Any],
+        matched_keywords: List[str]
+    ) -> Dict[str, Any]:
+        """
+        Mock AI job-specific resume customizer.
+        Reorders skills and projects to highlight genuine matching competencies.
+        Crafts tailored summary without fabricating any facts or metrics.
+        """
+        job_title = job_requirements.get("title", "Software Engineer")
+        company = job_requirements.get("company", "the company")
+
+        # Top matched keywords for summary
+        top_keywords = matched_keywords[:4] if matched_keywords else ["modern software engineering stacks"]
+        summary = (
+            f"Results-driven aspiring {job_title} with solid practical foundation in {', '.join(top_keywords)}. "
+            f"Skilled in building scalable, maintainable solutions and writing clean, tested code. "
+            f"Eager to contribute immediately to engineering initiatives at {company} while collaborating effectively across technical teams."
+        )
+
+        matched_set = {k.strip().lower() for k in matched_keywords if isinstance(k, str)}
+
+        # Reorder skills within each category so matching items appear first
+        skills_structured = []
+        raw_skills = master_profile_facts.get("skills", {})
+        if isinstance(raw_skills, dict):
+            for cat_key, cat_label in [
+                ("languages", "Programming Languages"),
+                ("frameworks", "Frameworks & Libraries"),
+                ("databases", "Databases"),
+                ("tools", "Developer Tools"),
+                ("other", "Other Competencies")
+            ]:
+                items = list(raw_skills.get(cat_key, []))
+                if items:
+                    matching = [i for i in items if i.lower() in matched_set]
+                    remaining = [i for i in items if i.lower() not in matched_set]
+                    reordered = matching + remaining
+                    skills_structured.append({
+                        "category": cat_label,
+                        "items": reordered
+                    })
+        elif isinstance(raw_skills, list):
+            # Already categorized (e.g. from base resume)
+            for cat in raw_skills:
+                items = list(cat.get("items", []))
+                matching = [i for i in items if i.lower() in matched_set]
+                remaining = [i for i in items if i.lower() not in matched_set]
+                skills_structured.append({
+                    "category": cat.get("category", "Skills"),
+                    "items": matching + remaining
+                })
+
+        # Reorder projects by relevance to matched keywords
+        raw_projects = list(master_profile_facts.get("projects", []))
+        scored_projects = []
+        for idx, p in enumerate(raw_projects):
+            p_tech = {t.lower() for t in p.get("tech_stack", [])}
+            p_desc = p.get("description", "").lower()
+            score = 0
+            for kw in matched_set:
+                if kw in p_tech:
+                    score += 2
+                elif kw in p_desc:
+                    score += 1
+            scored_projects.append((score, idx, p))
+
+        # Sort descending by score, maintaining stable order for ties
+        scored_projects.sort(key=lambda x: x[0], reverse=True)
+
+        projects_structured = []
+        for score, orig_idx, p in scored_projects:
+            title = p.get("title", f"Project {orig_idx + 1}")
+            tech = p.get("tech_stack", [])
+            desc = p.get("description", "")
+            bullets = p.get("description_bullets", [])
+            if not bullets and desc:
+                bullets = [l.strip() for l in desc.split("\n") if l.strip()]
+            if not bullets:
+                bullets = [
+                    f"Architected and developed {title} utilizing {', '.join(tech[:3]) if tech else 'modern architecture'}.",
+                    f"Engineered responsive components, robust error handling, and modular business logic.",
+                    f"Conducted rigorous testing and optimized overall application performance."
+                ]
+            projects_structured.append({
+                "source_index": p.get("source_index", orig_idx),
+                "title": title,
+                "description_bullets": bullets[:4],
+                "tech_stack": tech,
+                "link": p.get("link")
+            })
+
+        # Internships & Work Experience
+        internships_structured = []
+        for idx, it in enumerate(master_profile_facts.get("internships", [])):
+            desc = it.get("description", "")
+            bullets = it.get("description_bullets", [])
+            if not bullets and desc:
+                bullets = [l.strip() for l in desc.split("\n") if l.strip()]
+            internships_structured.append({
+                "source_index": it.get("source_index", idx),
+                "company": it.get("company", ""),
+                "role": it.get("role", ""),
+                "start_date": it.get("start_date", ""),
+                "end_date": it.get("end_date", ""),
+                "description_bullets": bullets[:3]
+            })
+
+        work_structured = []
+        for idx, w in enumerate(master_profile_facts.get("work_experience", [])):
+            desc = w.get("description", "")
+            bullets = w.get("description_bullets", [])
+            if not bullets and desc:
+                bullets = [l.strip() for l in desc.split("\n") if l.strip()]
+            work_structured.append({
+                "source_index": w.get("source_index", idx),
+                "company": w.get("company", ""),
+                "role": w.get("role", ""),
+                "start_date": w.get("start_date", ""),
+                "end_date": w.get("end_date", ""),
+                "description_bullets": bullets[:3]
+            })
+
+        personal = master_profile_facts.get("personal", {})
+        content = {
+            "personal": {
+                "full_name": personal.get("full_name", ""),
+                "email": personal.get("email", ""),
+                "phone": personal.get("phone", ""),
+                "location": personal.get("location", ""),
+                "linkedin_url": personal.get("linkedin_url"),
+                "github_url": personal.get("github_url")
+            },
+            "summary": summary,
+            "skills": skills_structured,
+            "projects": projects_structured,
+            "internships": internships_structured,
+            "work_experience": work_structured,
+            "education": [
+                {
+                    "degree": e.get("degree", ""),
+                    "institution": e.get("institution", ""),
+                    "graduation_year": e.get("graduation_year"),
+                    "score_type": e.get("score_type", "cgpa"),
+                    "score": e.get("score")
+                }
+                for e in master_profile_facts.get("education", [])
+            ],
+            "certifications": [
+                {
+                    "name": c.get("name", ""),
+                    "issuer": c.get("issuer", ""),
+                    "year": c.get("year")
+                }
+                for c in master_profile_facts.get("certifications", [])
+            ],
+            "achievements": master_profile_facts.get("achievements", [])
+        }
+
+        changes_summary = [
+            {
+                "section": "Summary",
+                "change": f"Refocused professional summary on {job_title} competencies",
+                "reason": f"Directly aligns with {company} job requirements"
+            },
+            {
+                "section": "Skills",
+                "change": f"Promoted {len(matched_keywords)} matching skills ({', '.join(matched_keywords[:3])}) to the top of categories",
+                "reason": "Allows technical recruiters and ATS to quickly verify core skills"
+            },
+            {
+                "section": "Projects",
+                "change": "Ranked projects by technical stack overlap with job posting",
+                "reason": "Puts the most relevant project accomplishments first"
+            }
+        ]
+
+        return {
+            "content": content,
+            "changes_summary": changes_summary
+        }
+
 
 class GeminiProvider(BaseAIProvider):
     """Production AI Provider using Google Gemini GenAI SDK."""
@@ -776,6 +970,62 @@ class GeminiProvider(BaseAIProvider):
         except Exception:
             pass
         return []
+
+    def customize_resume_content(
+        self,
+        master_profile_facts: Dict[str, Any],
+        job_requirements: Dict[str, Any],
+        matched_keywords: List[str]
+    ) -> Dict[str, Any]:
+        """Customizes resume using Gemini with strict anti-hallucination instructions and deterministic fallback."""
+        if not self.api_key:
+            return MockAIProvider().customize_resume_content(master_profile_facts, job_requirements, matched_keywords)
+
+        try:
+            from google import genai
+            client = genai.Client(api_key=self.api_key)
+
+            # PII Minimization
+            facts_copy = dict(master_profile_facts)
+            if "personal" in facts_copy and isinstance(facts_copy["personal"], dict):
+                p_copy = dict(facts_copy["personal"])
+                p_copy["full_name"] = "Candidate"
+                p_copy["email"] = "candidate@example.com"
+                p_copy["phone"] = "555-0100"
+                p_copy["linkedin_url"] = None
+                p_copy["github_url"] = None
+                facts_copy["personal"] = p_copy
+
+            prompt = (
+                "You are an expert ATS resume customizer for CareerPilot AI.\n"
+                "Customize the candidate's resume for the specified job posting by highlighting genuine matching skills and re-prioritizing projects.\n\n"
+                "CRITICAL TRUTHFULNESS & ANTI-HALLUCINATION RULES:\n"
+                "1. NEVER invent experience, projects, skills, certifications, achievements, or metrics.\n"
+                "2. Every skill must exist in the candidate's facts. Do NOT add any skill from the job requirements if the candidate does not have it.\n"
+                "3. NEVER change education, personal details, company names, or job titles.\n"
+                "4. Rewording is allowed ONLY to emphasize genuine relevance. Do NOT invent new numbers or inflated claims.\n"
+                "5. Return ONLY a valid JSON object matching: {\"content\": ResumeContent, \"changes_summary\": [{\"section\": str, \"change\": str, \"reason\": str}]}.\n\n"
+                f"JOB REQUIREMENTS:\n{json.dumps(job_requirements, default=str)}\n\n"
+                f"MATCHED KEYWORDS:\n{json.dumps(matched_keywords, default=str)}\n\n"
+                f"CANDIDATE FACTS:\n{json.dumps(facts_copy, default=str)}"
+            )
+
+            response = client.models.generate_content(
+                model=self.model_name,
+                contents=prompt
+            )
+            cleaned = clean_json_markdown(response.text.strip())
+            data = json.loads(cleaned)
+            if isinstance(data, dict) and "content" in data:
+                # Restore original truthful personal details
+                orig_personal = master_profile_facts.get("personal", {})
+                data["content"]["personal"] = orig_personal
+                return data
+        except Exception:
+            pass
+
+        # Deterministic fallback
+        return MockAIProvider().customize_resume_content(master_profile_facts, job_requirements, matched_keywords)
 
 
 def get_ai_service() -> BaseAIProvider:

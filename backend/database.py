@@ -74,6 +74,12 @@ def _ensure_indexes(db):
         db.resumes.create_index(
             [("user_id", ASCENDING), ("target_role", ASCENDING), ("version", ASCENDING)]
         )
+        db.resumes.create_index(
+            [("user_id", ASCENDING), ("job_id", ASCENDING), ("version", ASCENDING)]
+        )
+        db.resumes.create_index(
+            [("user_id", ASCENDING), ("kind", ASCENDING)]
+        )
     except Exception as e:
         print(f"[Database] Index notice (resumes): {e}")
 

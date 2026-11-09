@@ -510,3 +510,30 @@ def export_resume_pdf(resume_doc: Dict[str, Any], output_path: str) -> str:
     doc.build(story)
     return output_path
 
+
+def export_resume_pdf_and_docx(
+    user_id: str,
+    resume_id: str,
+    content: Optional[Dict[str, Any]] = None,
+    template: str = "modern",
+    resume_doc: Optional[Dict[str, Any]] = None
+) -> Tuple[str, str]:
+    """
+    Exports both ATS-friendly PDF and DOCX files to the user's private storage.
+    """
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "private_storage", str(user_id), "resumes"))
+    os.makedirs(base_dir, exist_ok=True)
+    pdf_path = os.path.join(base_dir, f"{resume_id}_{template}.pdf")
+    docx_path = os.path.join(base_dir, f"{resume_id}_{template}.docx")
+
+    doc_data = resume_doc or {
+        "_id": resume_id,
+        "user_id": user_id,
+        "template": template,
+        "content": content or {}
+    }
+    export_resume_pdf(doc_data, pdf_path)
+    export_resume_docx(doc_data, docx_path)
+    return pdf_path, docx_path
+
+

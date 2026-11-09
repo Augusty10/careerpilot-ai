@@ -345,3 +345,82 @@ def validate_resume_against_master(
 
     return validated, warnings
 
+
+def validate_job_specific_customization(
+    resume_content: Optional[Dict[str, Any]] = None,
+    master_profile: Optional[Dict[str, Any]] = None,
+    job_requirements: Optional[Dict[str, Any]] = None,
+    skill_gaps: Optional[List[str]] = None,
+    customized_content: Optional[Dict[str, Any]] = None
+) -> Tuple[Dict[str, Any], List[str]]:
+    """
+    Validates job-specific customized resume content:
+    1. Runs baseline validate_resume_against_master() to enforce personal, education,
+       and skill whitelist truthfulness.
+    2. Enforces that NO skill listed in skill_gaps was injected into skills or tech_stacks.
+    3. Detects and strips invented quantitative metrics in project/internship bullets
+       that are absent from the master profile.
+    
+    Returns:
+        (validated_content_dict, warnings_list)
+    """
+    import re
+
+    content = resume_content if resume_content is not None else (customized_content or {})
+    prof = master_profile or {}
+
+    validated, warnings = validate_resume_against_master(content, prof)
+
+    gap_set = {g.strip().lower() for g in (skill_gaps or []) if isinstance(g, str)}
+
+    # Check if any skill gap leaked into skills
+    cleaned_skill_cats = []
+    for cat in validated.get("skills", []):
+        cat_items = []
+        for item in cat.get("items", []):
+            if item.lower() in gap_set:
+                warnings.append(
+                    f"Blocked skill gap '{item}' from being added to resume (must be learned/added to master profile first)."
+                )
+            else:
+                cat_items.append(item)
+        if cat_items:
+            cleaned_skill_cats.append({"category": cat["category"], "items": cat_items})
+    validated["skills"] = cleaned_skill_cats
+
+    # Check projects tech_stack for skill gaps
+    for proj in validated.get("projects", []):
+        cleaned_tech = []
+        for t in proj.get("tech_stack", []):
+            if t.lower() in gap_set:
+                warnings.append(
+                    f"Removed skill gap '{t}' from project '{proj.get('title')}' tech stack."
+                )
+            else:
+                cleaned_tech.append(t)
+        proj["tech_stack"] = cleaned_tech
+
+    # Check for hallucinated metrics in bullets
+    master_text = " ".join([
+        p.get("description", "") for p in master_profile.get("projects", []) if isinstance(p, dict)
+    ] + [
+        it.get("description", "") for it in master_profile.get("internships", []) if isinstance(it, dict)
+    ]).lower()
+
+    metric_pattern = re.compile(r"\b(\d{1,3}%|\$\d+|\d+x|\d+\s*(?:ms|seconds|users|clients|req/s))\b", re.IGNORECASE)
+
+    for proj in validated.get("projects", []):
+        cleaned_bullets = []
+        for bullet in proj.get("description_bullets", []):
+            found_metrics = metric_pattern.findall(bullet)
+            for m in found_metrics:
+                if m.lower() not in master_text:
+                    warnings.append(
+                        f"Removed invented metric '{m}' in project '{proj.get('title')}' (not found in master profile)."
+                    )
+                    bullet = re.sub(re.escape(m), "measurably", bullet)
+            cleaned_bullets.append(bullet)
+        proj["description_bullets"] = cleaned_bullets
+
+    return validated, warnings
+

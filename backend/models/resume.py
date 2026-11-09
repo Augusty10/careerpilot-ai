@@ -106,6 +106,13 @@ class ResumeUpdateRequestSchema(BaseModel):
     content: ResumeContentSchema
 
 
+class ResumeCustomizeRequestSchema(BaseModel):
+    job_id: str = Field(..., min_length=4, max_length=128)
+    base_resume_id: Optional[str] = None
+    template: Optional[Literal["classic", "modern"]] = "modern"
+    resume_name: Optional[str] = Field(default=None, max_length=150)
+
+
 def serialize_resume(resume_doc: Dict[str, Any], master_profile_updated_at: Optional[datetime] = None) -> Dict[str, Any]:
     """
     Serializes a MongoDB resume document into an API response dictionary.
@@ -125,6 +132,10 @@ def serialize_resume(resume_doc: Dict[str, Any], master_profile_updated_at: Opti
     updated_at = doc.get("updated_at")
     if isinstance(updated_at, datetime):
         doc["updated_at"] = updated_at.isoformat()
+
+    approved_at = doc.get("approved_at")
+    if isinstance(approved_at, datetime):
+        doc["approved_at"] = approved_at.isoformat()
 
     gen_profile_time = doc.get("generated_from_profile_updated_at")
     if isinstance(gen_profile_time, datetime):
